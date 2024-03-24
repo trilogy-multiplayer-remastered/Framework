@@ -25,7 +25,7 @@ namespace Framework::Scripting {
     ModuleError Module::InitServerEngine(SDKRegisterCallback cb) {
         // Validate the presence of the gamemode and the gamemode server sub folder
         const cppfs::FileHandle serverFolder = cppfs::fs::open("gamemode");
-        if (!serverFolder.exists() || !serverFolder.isFile()) {
+        if (!serverFolder.exists() || serverFolder.isFile()) {
             Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The gamemode path is not present or is not a folder");
             return ModuleError::MODULE_MISSING_GAMEMODE;
         }
