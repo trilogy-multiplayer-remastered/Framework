@@ -8,12 +8,6 @@
 namespace Framework::Scripting {
     class Engine;
     using Callback = v8::CopyablePersistentTraits<v8::Function>::CopyablePersistent;
-    struct GamemodeMetadata {
-        std::string path;
-        std::string name;
-        std::string version;
-        std::string entrypoint;
-    };
 
     class SDKRegisterWrapper final {
       private:

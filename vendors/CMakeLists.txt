@@ -1,6 +1,14 @@
 set(BUILD_SHARED_LIBS CACHE BOOL OFF)
 set(BUILD_SAMPLES CACHE BOOL OFF)
 
+# Recursively find all source files in the vendors directory
+file(GLOB_RECURSE VENDOR_FILES "*.cpp" "*.c" "*.h" "*.hpp")
+
+# Apply the no-warning compile flag to all files in the vendors directory
+foreach(vendor_file ${VENDOR_FILES})
+    set_source_files_properties(${vendor_file} PROPERTIES COMPILE_FLAGS "-w")
+endforeach()
+
 # Add OpenSSL
 if (WIN32)
     set(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/openssl")

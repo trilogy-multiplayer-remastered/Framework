@@ -33,6 +33,7 @@ namespace Framework::Scripting {
 
         // Init should return an error if the engine failed to initialize
         _serverEngine = std::make_unique<ServerEngine>();
+        _serverEngine->SetExecutionPath(_mainPath + "/server");
         if (_serverEngine->Init(cb) != EngineError::ENGINE_NONE) {
             _serverEngine.reset();
             return ModuleError::MODULE_ENGINE_INIT_FAILED;

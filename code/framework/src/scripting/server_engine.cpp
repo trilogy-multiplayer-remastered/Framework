@@ -15,7 +15,7 @@
 #include "world/server.h"
 
 static constexpr char bootstrap_code[] = R"(
-const publicRequire = require("module").createRequire(process.cwd() + "/gamemode/");
+const publicRequire = require("module").createRequire(process.cwd() + "/gamemode/server/");
 globalThis.require = publicRequire;
 require("vm").runInThisContext(process.argv[1]);
 )";
@@ -134,8 +134,8 @@ namespace Framework::Scripting {
             v8::SealHandleScope seal(_isolate);
             _platform->DrainTasks(_isolate);
 
-            // Notify the gamemode, if loaded
-            if (_gamemodeLoaded) {
+            // Notify the package, if loaded
+            if (_packageLoaded) {
                 InvokeEvent(Events[EventIDs::GAMEMODE_UPDATED]);
             }
         }
@@ -154,36 +154,11 @@ namespace Framework::Scripting {
         }*/
     }
 
-    bool ServerEngine::LoadScript(){
-        if(_gamemodeLoaded){
-            return false;
-        }
-        return true;
-    }
-
-    bool ServerEngine::UnloadScript(){
-        if(!_gamemodeLoaded){
-            return false;
-        }
-
-        
-        return true;
-    }
-
-    /*bool ServerEngine::LoadGamemodePackageFile(std::string mainPath) {
-        // If gamemmode is already loaded, don't load it again
-        if (_gamemodeLoaded) {
-            return false;
-        }
-
+    bool ServerEngine::LoadPackageDefinitions(){
         // Check the package.json file exists
-        const cppfs::FileHandle packageFile = cppfs::fs::open(mainPath + "/package.json");
-        if (!packageFile.exists()) {
-            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The gamemode package.json file does not exists");
-            return false;
-        }
-        if (!packageFile.isFile()) {
-            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The gamemode package.json entry is not a file");
+        const cppfs::FileHandle packageFile = cppfs::fs::open(_executionPath + "/package.json");
+        if (!packageFile.exists() || !packageFile.isFile()) {
+            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->error("The gamemode package.json handle does not exists or is not a file");
             return false;
         }
 
@@ -194,20 +169,11 @@ namespace Framework::Scripting {
             return false;
         }
 
-        _gamemodePath = mainPath;
-
         auto root = nlohmann::json::parse(packageFileContent);
         try {
-            _gamemodeMetadata.name       = root["name"].get<std::string>();
-            _gamemodeMetadata.version    = root["version"].get<std::string>();
-            _gamemodeMetadata.entrypoint = root["main"].get<std::string>();
-
-            if (root.contains("mod")) {
-                if (GetModName() != root["mod"].get<std::string>()) {
-                    Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The gamemode defined mod is not for this mod");
-                    return false;
-                }
-            }
+            _packageDefinition.name       = root["name"].get<std::string>();
+            _packageDefinition.version    = root["version"].get<std::string>();
+            _packageDefinition.entrypoint = root["main"].get<std::string>();
             return true;
         }
         catch (nlohmann::detail::type_error &err) {
@@ -217,32 +183,28 @@ namespace Framework::Scripting {
         return true;
     }
 
-    bool ServerEngine::PreloadGamemode(std::string mainPath) {
-        if (LoadGamemodePackageFile(mainPath)) {
-            if (LoadGamemode(mainPath)) {
-                return WatchGamemodeChanges(mainPath);
-            }
+    bool ServerEngine::LoadScript(){
+        // Package cannot be loaded twice
+        if(_packageLoaded){
+            return false;
         }
-        return false;
-    }
 
-    bool ServerEngine::LoadGamemode(std::string mainPath) {
-        if (_gamemodeLoaded) {
-            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->error("The gamemode is already loaded");
+        // Make sure to reload the definitions
+        if(!LoadPackageDefinitions()){
             return false;
         }
 
         // Make sure the specified entrypoint is valid
-        const cppfs::FileHandle entryPointFile = cppfs::fs::open(mainPath + "/" + _gamemodeMetadata.entrypoint);
+        const cppfs::FileHandle entryPointFile = cppfs::fs::open(_executionPath + "/" + _packageDefinition.entrypoint);
         if (!entryPointFile.exists() || !entryPointFile.isFile()) {
-            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The specified entrypoint '{}' from '{}' is not a file", _gamemodeMetadata.entrypoint, _gamemodeMetadata.name);
+            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The specified entrypoint '{}' from '{}' is not a file", _packageDefinition.entrypoint, _packageDefinition.name);
             return false;
         }
 
         // Read the entrypoint file content
         const std::string content = entryPointFile.readFile();
         if (content.empty()) {
-            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The specified entrypoint file '{}' from '{}' is empty", _gamemodeMetadata.entrypoint, _gamemodeMetadata.name);
+            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The specified entrypoint file '{}' from '{}' is empty", _packageDefinition.entrypoint, _packageDefinition.name);
             return false;
         }
 
@@ -279,14 +241,12 @@ namespace Framework::Scripting {
         // Invoke the gamemode loaded event
         InvokeEvent(Events[EventIDs::GAMEMODE_LOADED]);
 
-        _gamemodeLoaded = true;
+        _packageLoaded = true;
         return true;
     }
 
-    bool ServerEngine::UnloadGamemode(std::string mainPath) {
-        // If gamemode is not loaded, don't unload it
-        if (!_gamemodeLoaded) {
-            Framework::Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->error("The gamemode is not loaded");
+    bool ServerEngine::UnloadScript(){
+        if(!_packageLoaded){
             return false;
         }
 
@@ -294,10 +254,11 @@ namespace Framework::Scripting {
         InvokeEvent(Events[EventIDs::GAMEMODE_UNLOADING]);
 
         // Purge all gamemode entities
-        const auto worldEngine = CoreModules::GetWorldEngine();
+        // TODO: this has nothing to do with the scripting engine, and shouldn't be here
+        /*const auto worldEngine = CoreModules::GetWorldEngine();
         if (worldEngine) {
             worldEngine->PurgeAllGameModeEntities();
-        }
+        }*/
 
         // Stop node environment
         node::Stop(_gamemodeEnvironment);
@@ -332,8 +293,10 @@ namespace Framework::Scripting {
         node::FreeIsolateData(_gamemodeData);
         node::FreeEnvironment(_gamemodeEnvironment);
 
-        _gamemodeEventHandlers.clear();
-        _gamemodeLoaded = false;
+        _eventHandlers.clear();
+        _packageLoaded = false;
+        return true;
+        
         return true;
     }
 
@@ -383,6 +346,7 @@ namespace Framework::Scripting {
         return true;
     }
 
+    /*
     bool ServerEngine::WatchGamemodeChanges(std::string path) {
         cppfs::FileHandle dir = cppfs::fs::open(path);
         if (!dir.isDirectory()) {

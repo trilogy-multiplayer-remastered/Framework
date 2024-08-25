@@ -26,12 +26,20 @@
 #include "v8_helpers/v8_try_catch.h"
 
 namespace Framework::Scripting {
+    struct PackageDefinition {
+        std::string path;
+        std::string name;
+        std::string version;
+        std::string entrypoint;
+    };
+
     class ServerEngine : public Engine {
       private:
         // Global
         cppfs::FileWatcher *_watcher;
         Utils::Time::TimePoint _nextFileWatchUpdate;
         int32_t _fileWatchUpdatePeriod = 1000;
+        std::string _executionPath;
 
         // Global engine
         static inline bool _wasNodeAlreadyInited = false;
@@ -41,10 +49,12 @@ namespace Framework::Scripting {
         std::atomic<bool> _isShuttingDown = false;
         uv_loop_t uv_loop;
 
+        // Package
+        std::atomic<bool> _packageLoaded = false;
+        PackageDefinition _packageDefinition = {};
+
         // Gamemode
-        std::atomic<bool> _gamemodeLoaded = false;
         std::string _gamemodePath;
-        GamemodeMetadata _gamemodeMetadata = {};
         v8::Persistent<v8::Script> _gamemodeScript;
         node::IsolateData *_gamemodeData        = nullptr;
         node::Environment *_gamemodeEnvironment = nullptr;
@@ -55,8 +65,13 @@ namespace Framework::Scripting {
         EngineError Shutdown() override;
         void Update() override;
 
+        bool LoadPackageDefinitions();
+
         bool LoadScript();
         bool UnloadScript();
+
+        bool CompileGamemodeScript(const std::string &str, const std::string &path);
+        bool RunGamemodeScript() const;
 
         node::MultiIsolatePlatform *GetPlatform() const {
             return _platform.get();
@@ -66,8 +81,12 @@ namespace Framework::Scripting {
             return _globalObjectTemplate.Get(_isolate);
         }
 
-        bool IsGamemodeLoaded() const {
-            return _gamemodeLoaded;
+        bool IsPackageLoaded() const {
+            return _packageLoaded;
+        }
+
+        void SetExecutionPath(const std::string &path) {
+            _executionPath = path;
         }
     };
 } // namespace Framework::Scripting::Engines::Node
