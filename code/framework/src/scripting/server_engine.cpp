@@ -154,6 +154,22 @@ namespace Framework::Scripting {
         }*/
     }
 
+    bool ServerEngine::LoadScript(){
+        if(_gamemodeLoaded){
+            return false;
+        }
+        return true;
+    }
+
+    bool ServerEngine::UnloadScript(){
+        if(!_gamemodeLoaded){
+            return false;
+        }
+
+        
+        return true;
+    }
+
     /*bool ServerEngine::LoadGamemodePackageFile(std::string mainPath) {
         // If gamemmode is already loaded, don't load it again
         if (_gamemodeLoaded) {

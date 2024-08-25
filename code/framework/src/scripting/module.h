@@ -20,15 +20,13 @@
 namespace Framework::Scripting {
     class Module {
       private:
-        int _processArgsCount = 0;
-        char **_processArgs   = nullptr;
-        std::string _modName;
+        std::string _mainPath;
 
         std::unique_ptr<ClientEngine> _clientEngine;
         std::unique_ptr<ServerEngine> _serverEngine;
 
       public:
-        Module()  = default;
+        Module() = default;
         ~Module() = default;
 
         ModuleError InitClientEngine(SDKRegisterCallback);
@@ -45,13 +43,8 @@ namespace Framework::Scripting {
             return _serverEngine.get();
         }
 
-        void SetProcessArguments(int argc, char **argv) {
-            _processArgsCount = argc;
-            _processArgs      = argv;
-        }
-
-        void SetModName(std::string name) {
-            _modName = name;
+        void SetMainPath(const std::string &mainPath) {
+            _mainPath = mainPath;
         }
     };
 } // namespace Framework::Scripting

@@ -10,6 +10,7 @@
 #include <cppfs/FileIterator.h>
 #include <cppfs/fs.h>
 #include <logging/logger.h>
+#include <nlohmann/json.hpp>
 #include <regex>
 
 #include "module.h"
@@ -24,17 +25,14 @@ namespace Framework::Scripting {
 
     ModuleError Module::InitServerEngine(SDKRegisterCallback cb) {
         // Validate the presence of the gamemode and the gamemode server sub folder
-        const cppfs::FileHandle serverFolder = cppfs::fs::open("gamemode");
+        const cppfs::FileHandle serverFolder = cppfs::fs::open(_mainPath + "/server");
         if (!serverFolder.exists() || serverFolder.isFile()) {
-            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug("The gamemode path is not present or is not a folder");
+            Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->debug(fmt::format("The server folder '{}' does not exist", _mainPath + "/server"));
             return ModuleError::MODULE_MISSING_GAMEMODE;
         }
 
-        _serverEngine = std::make_unique<ServerEngine>();
-        _serverEngine->SetModName(_modName);
-        _serverEngine->SetProcessArguments(_processArgsCount, _processArgs);
-
         // Init should return an error if the engine failed to initialize
+        _serverEngine = std::make_unique<ServerEngine>();
         if (_serverEngine->Init(cb) != EngineError::ENGINE_NONE) {
             _serverEngine.reset();
             return ModuleError::MODULE_ENGINE_INIT_FAILED;

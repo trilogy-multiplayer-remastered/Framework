@@ -38,7 +38,6 @@ namespace Framework::Scripting {
         v8::Persistent<v8::ObjectTemplate> _globalObjectTemplate;
         std::unique_ptr<node::MultiIsolatePlatform> _platform;
         v8::Persistent<v8::Context> _context;
-        std::string _modName;
         std::atomic<bool> _isShuttingDown = false;
         uv_loop_t uv_loop;
 
@@ -56,10 +55,8 @@ namespace Framework::Scripting {
         EngineError Shutdown() override;
         void Update() override;
 
-        /*bool LoadGamemodePackageFile(std::string);
-        bool CompileGamemodeScript(const std::string &, const std::string &);
-        bool RunGamemodeScript() const;
-        bool WatchGamemodeChanges(std::string);*/
+        bool LoadScript();
+        bool UnloadScript();
 
         node::MultiIsolatePlatform *GetPlatform() const {
             return _platform.get();
@@ -71,20 +68,6 @@ namespace Framework::Scripting {
 
         bool IsGamemodeLoaded() const {
             return _gamemodeLoaded;
-        }
-
-        void SetProcessArguments(int argc, char **argv) {}
-
-        void SetModName(std::string name) {
-            _modName = name;
-        }
-
-        std::string GetModName() const {
-            return _modName;
-        }
-
-        std::string GetGameModeName() const {
-            return _gamemodeMetadata.name;
         }
     };
 } // namespace Framework::Scripting::Engines::Node

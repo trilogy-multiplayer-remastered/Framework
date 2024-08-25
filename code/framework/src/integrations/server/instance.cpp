@@ -40,6 +40,7 @@ namespace Framework::Integrations::Server {
         _firebaseWrapper  = std::make_unique<External::Firebase::Wrapper>();
         _worldEngine      = std::make_shared<World::ServerEngine>();
         _scriptingEngine  = std::make_shared<Scripting::ServerEngine>(_worldEngine);
+        _scriptingEngine->SetMainPath("gamemode");
         _playerFactory    = std::make_shared<World::Archetypes::PlayerFactory>();
         _streamingFactory = std::make_shared<World::Archetypes::StreamingFactory>();
         _masterlist       = std::make_unique<Services::MasterlistConnector>();
@@ -116,8 +117,6 @@ namespace Framework::Integrations::Server {
         };
 
         // Initialize the scripting engine
-        _scriptingEngine->SetProcessArguments(opts.argc, opts.argv);
-        _scriptingEngine->SetModName(opts.modName);
         if (_scriptingEngine->InitServerEngine(sdkCallback) != Framework::Scripting::ModuleError::MODULE_NONE) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the scripting engine");
             return ServerError::SERVER_SCRIPTING_INIT_FAILED;
@@ -154,7 +153,7 @@ namespace Framework::Integrations::Server {
         PostInit();
 
         // Load the gamemode
-        // _scriptingEngine->LoadGamemode();
+        _scriptingEngine->GetServerEngine()->LoadScript();
 
         Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Host:\t{}", _opts.bindHost);
         Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Port:\t{}", _opts.bindPort);
