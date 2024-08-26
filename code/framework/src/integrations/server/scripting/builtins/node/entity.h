@@ -34,7 +34,6 @@ namespace Framework::Integrations::Scripting {
         flecs::entity _ent {};
 
       public:
-        Entity() = default;
         Entity(flecs::entity_t ent) {
             _ent = flecs::entity(CoreModules::GetWorldEngine()->GetWorld()->get_world(), ent);
         }
@@ -179,7 +178,7 @@ namespace Framework::Integrations::Scripting {
         }
 
         static void Register(sol::state &luaEngine) {
-            sol::usertype<Entity> cls = luaEngine.new_usertype<Entity>("Entity", sol::constructors<Entity()>());
+            sol::usertype<Entity> cls = luaEngine.new_usertype<Entity>("Entity", sol::constructors<Entity(uint64_t)>());
             cls.set("id", sol::readonly(&Entity::GetID));
             cls.set("name", sol::readonly(&Entity::GetName));
             cls.set("nickname", sol::readonly(&Entity::GetNickname));
