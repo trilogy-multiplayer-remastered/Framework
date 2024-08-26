@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.7)
 project(build-openssl
-        VERSION 1.0
+        VERSION 1.1
         LANGUAGES C)
 include(ExternalProject)
 
@@ -10,6 +10,6 @@ MESSAGE(STATUS "BUILD-OPENSSL OpenSSL will be installed to ${INSTALL_DIR}, worki
 
 ExternalProject_Add(openssl-cmake
         PREFIX ${BUILD_DIR}
-        URL "https://github.com/MafiaHub/openssl-cmake/archive/1.1.1g-20200510.zip"
+        URL "https://github.com/MafiaHub/openssl-cmake/archive/1.1.1k-20210430.zip"
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DWITH_APPS=OFF
         )
