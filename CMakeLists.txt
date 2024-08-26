@@ -33,8 +33,6 @@ include_directories(
     "${PROJECT_SOURCE_DIR}/vendors/galaxy/Include"
     "${PROJECT_SOURCE_DIR}/vendors/udis86"
     "${PROJECT_SOURCE_DIR}/vendors/httplib"
-    "${PROJECT_SOURCE_DIR}/vendors/lua-5.2.1/src/lua52"
-    "${PROJECT_SOURCE_DIR}/vendors/lua-5.3.6/src/lua53"
     "${PROJECT_SOURCE_DIR}/vendors/lua-5.4.4/src/lua54"
     "${PROJECT_SOURCE_DIR}/vendors/discord/src"
     "${PROJECT_SOURCE_DIR}/vendors/sentry/include"
