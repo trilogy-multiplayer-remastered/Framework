@@ -78,10 +78,6 @@ set(OPTICK_BUILD_SHARED CACHE BOOL "" OFF)
 set(OPTICK_INSTALL_TARGETS CACHE BOOL "" OFF)
 add_subdirectory(optick)
 
-# Build NodeJS
-set(ENABLE_LIB_ONLY CACHE BOOL "" ON)
-add_subdirectory(nodejs)
-
 # Build flecs
 set(FLECS_SHARED_LIBS CACHE BOOL "" OFF)
 add_subdirectory(flecs)
@@ -94,6 +90,9 @@ add_subdirectory(libsig)
 
 # Build sfd
 add_subdirectory(sfd)
+
+# Build lua
+add_subdirectory(lua-5.4.4)
 
 # Build OS specific libraries
 if (WIN32)
@@ -110,21 +109,6 @@ if (WIN32)
     add_subdirectory(ultralight)
     add_subdirectory(javascriptcorepp)
 
-    # Lua
-    add_subdirectory(lua-5.2.1)
-    add_subdirectory(lua-5.3.6)
-    add_subdirectory(lua-5.4.4)
-
     set(StackWalker_DISABLE_TESTS CACHE BOOL "" ON)
     add_subdirectory(StackWalker)
 endif ()
-
-# Build v8pp
-set(V8PP_ISOLATE_DATA_SLOT 1 CACHE STRING "v8::Isolate data slot number, used in v8pp for shared data")
-set(V8PP_HEADER_ONLY 1 CACHE BOOL "Header-only library")
-set(V8_COMPRESS_POINTERS 0 CACHE BOOL "Use new V8 ABI with V8_COMPRESS_POINTERS and V8_31BIT_SMIS_ON_64BIT_ARCH")
-set(V8_NUGET_DEV_DIR "v8-")
-set(V8_NUGET_BIN_DIR "v8-")
-set(BUILD_TESTING OFF)
-list(APPEND CMAKE_MODULE_PATH "v8pp/cmake")
-add_subdirectory(v8pp)
