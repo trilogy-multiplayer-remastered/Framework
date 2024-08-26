@@ -9,8 +9,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <v8pp/class.hpp>
-#include <v8pp/module.hpp>
+#include <sol/sol.hpp>
 
 #include <iomanip>
 #include <list>
@@ -73,28 +72,18 @@ namespace Framework::Scripting::Builtins {
             _data = glm::mix(_data, newVec, static_cast<float>(f));
         }
 
-        static void Register(v8::Isolate *isolate, v8pp::module *rootModule) {
-            if (!rootModule) {
-                return;
-            }
-
-            v8pp::class_<Vector2> cls(isolate);
-            cls.ctor<double, double>();
-
-            cls.property("x", &Vector2::GetX);
-            cls.property("y", &Vector2::GetY);
-            cls.property("length", &Vector2::GetLength);
-
-            cls.function("toString", &Vector2::ToString);
-            cls.function("toArray", &Vector2::ToArray);
-
-            cls.function("add", &Vector2::Add);
-            cls.function("sub", &Vector2::Sub);
-            cls.function("mul", &Vector2::Mul);
-            cls.function("div", &Vector2::Div);
-            cls.function("lerp", &Vector2::Lerp);
-
-            rootModule->class_("Vector2", cls);
+        static void Register(sol::state &luaEngine) {
+            sol::usertype<Vector2> cls = luaEngine.new_usertype<Vector2>("Vector2", sol::constructors<Vector2(double, double)>());
+            cls.set("x", sol::readonly(&Vector2::GetX));
+            cls.set("y", sol::readonly(&Vector2::GetY));
+            cls.set("length", sol::readonly(&Vector2::GetLength));
+            cls["toString"] = &Vector2::ToString;
+            cls["toArray"]  = &Vector2::ToArray;
+            cls["add"]     = &Vector2::Add;
+            cls["sub"]     = &Vector2::Sub;
+            cls["mul"]     = &Vector2::Mul;
+            cls["div"]     = &Vector2::Div;
+            cls["lerp"]     = &Vector2::Lerp;
         }
     };
 } // namespace Framework::Scripting::Engines::Node::Builtins

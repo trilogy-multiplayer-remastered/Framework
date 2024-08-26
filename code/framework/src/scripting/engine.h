@@ -2,89 +2,61 @@
 
 #include <map>
 
-#include <uv.h>
-#include <v8.h>
-#include <v8pp/module.hpp>
-
 #include <logging/logger.h>
 #include <utils/time.h>
+#include <sol/sol.hpp>
 
 #include "errors.h"
 #include "shared.h"
-#include "v8_helpers/v8_string.h"
-#include "v8_helpers/v8_try_catch.h"
 
 namespace Framework::Scripting {
     class Engine {
-      private:
       public:
-        v8pp::module *_module = nullptr;
-
-        v8::Isolate *_isolate = nullptr;
-        v8::Persistent<v8::Context> _context;
-
-        std::map<std::string, std::vector<Callback>> _eventHandlers = {};
+        sol::state _luaEngine;
+        // std::map<std::string, std::vector<Callback>> _eventHandlers = {};
 
       public:
         virtual EngineError Init(SDKRegisterCallback) = 0;
-        virtual EngineError Shutdown() = 0;
-        virtual void Update() = 0;
+        virtual EngineError Shutdown()                = 0;
+        virtual void Update()                         = 0;
 
         bool InitSDK(SDKRegisterCallback);
 
-        template <typename... Args>
-        void InvokeEvent(const std::string name, Args... args) {
-            v8::Locker locker(GetIsolate());
-            v8::Isolate::Scope isolateScope(GetIsolate());
-            v8::HandleScope handleScope(GetIsolate());
-            v8::Context::Scope contextScope(_context.Get(_isolate));
+        sol::state& GetLuaEngine() {
+            return _luaEngine;
+        }
 
-            if (_eventHandlers[name].empty()) {
-                return;
+        bool IsEventValid(std::string name) {
+            return _luaEngine[name] != nullptr;
+        }
+
+        template<typename T=void, typename ...Args>
+        T InvokeEvent(const std::string name, Args... args) {
+            if (_luaEngine[name] == nullptr){
+                return T();
             }
 
-            constexpr const int arg_count                           = sizeof...(Args);
-            v8::Local<v8::Value> v8_args[arg_count ? arg_count : 1] = {v8pp::to_v8(_isolate, std::forward<Args>(args))...};
+            try {
+                sol::protected_function f(_luaEngine[name]);
+                sol::protected_function_result res = f(args...);
 
-            for (auto it = _eventHandlers[name].begin(); it != _eventHandlers[name].end(); ++it) {
-                v8::TryCatch tryCatch(_isolate);
+                if (!res.valid()) {
+                    sol::error err = res;
+                    std::cerr << err.what() << std::endl;
+                    return T();
+                }
 
-                it->Get(_isolate)->Call(_context.Get(_isolate), v8::Undefined(_isolate), arg_count, v8_args);
-
-                if (tryCatch.HasCaught()) {
-                    const auto context                         = _context.Get(_isolate);
-                    const v8::Local<v8::Message> message       = tryCatch.Message();
-                    v8::Local<v8::Value> exception             = tryCatch.Exception();
-                    v8::MaybeLocal<v8::String> maybeSourceLine = message->GetSourceLine(context);
-                    v8::Maybe<int32_t> line                    = message->GetLineNumber(context);
-                    v8::ScriptOrigin origin                    = message->GetScriptOrigin();
-                    Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_SCRIPTING)->debug("[Helpers] exception at {}: {}: {}", name, *v8::String::Utf8Value(_isolate, origin.ResourceName()), line.ToChecked());
-
-                    auto stackTrace = tryCatch.StackTrace(context);
-                    if (!stackTrace.IsEmpty())
-                        Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_SCRIPTING)->debug("[Helpers] Stack trace: {}", *v8::String::Utf8Value(_isolate, stackTrace.ToLocalChecked()));
+                if constexpr (std::is_same_v<T, void>) {
+                    return;
+                }
+                else {
+                    return res;
                 }
             }
-        }
-
-        v8pp::module *GetModule() const {
-            return _module;
-        }
-
-        v8::Isolate *GetIsolate() const {
-            return _isolate;
-        }
-
-        v8::Local<v8::Context> GetContext() const {
-            return _context.Get(_isolate);
-        }
-
-        v8::Local<v8::ObjectTemplate> GetObjectTemplate() const {
-            return _module->impl();
-        }
-
-        v8::Local<v8::Object> GetNewInstance() const {
-            return _module->new_instance();
+            catch (sol::error &ex) {
+                std::cerr << ex.what() << std::endl;
+                return T();
+            }
         }
     };
 } // namespace Framework::Scripting

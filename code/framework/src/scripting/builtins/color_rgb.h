@@ -9,8 +9,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <v8pp/class.hpp>
-#include <v8pp/module.hpp>
+#include <sol/sol.hpp>
 
 #include <iomanip>
 #include <list>
@@ -84,27 +83,17 @@ namespace Framework::Scripting::Builtins {
             return ColorRGB(static_cast<int>(vec.r * 255.0f), static_cast<int>(vec.g * 255.0f), static_cast<int>(vec.b * 255.0f));
         }
 
-        static void Register(v8::Isolate *isolate, v8pp::module *rootModule) {
-            if (!rootModule) {
-                return;
-            }
-
-            v8pp::class_<ColorRGB> cls(isolate);
-            cls.ctor<int, int, int>();
-
-            cls.property("r", &ColorRGB::GetR);
-            cls.property("g", &ColorRGB::GetG);
-            cls.property("b", &ColorRGB::GetB);
-
-            cls.function("toString", &ColorRGB::ToString);
-            cls.function("toArray", &ColorRGB::ToArray);
-
-            cls.function("add", &ColorRGB::Add);
-            cls.function("sub", &ColorRGB::Sub);
-            cls.function("mul", &ColorRGB::Mul);
-            cls.function("div", &ColorRGB::Div);
-
-            rootModule->class_("RGB", cls);
+        static void Register(sol::state &luaEngine) {
+            sol::usertype<ColorRGB> cls = luaEngine.new_usertype<ColorRGB>("RGB", sol::constructors<ColorRGB(int, int, int)>());
+            cls.set("r", sol::readonly(&ColorRGB::GetR));
+            cls.set("g", sol::readonly(&ColorRGB::GetG));
+            cls.set("b", sol::readonly(&ColorRGB::GetB));
+            cls["toString"] = &ColorRGB::ToString;
+            cls["toArray"]  = &ColorRGB::ToArray;
+            cls["add"]     = &ColorRGB::Add;
+            cls["sub"]     = &ColorRGB::Sub;
+            cls["mul"]     = &ColorRGB::Mul;
+            cls["div"]     = &ColorRGB::Div;
         }
     };
 } // namespace Framework::Scripting::Engines::Node::Builtins

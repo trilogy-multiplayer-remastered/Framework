@@ -9,8 +9,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <v8pp/class.hpp>
-#include <v8pp/module.hpp>
+#include <sol/sol.hpp>
 
 #include <iomanip>
 #include <list>
@@ -92,28 +91,18 @@ namespace Framework::Scripting::Builtins {
             return ColorRGBA(static_cast<int>(vec.r * 255.0f), static_cast<int>(vec.g * 255.0f), static_cast<int>(vec.b * 255.0f), static_cast<int>(vec.a * 255.0f));
         }
 
-        static void Register(v8::Isolate *isolate, v8pp::module *rootModule) {
-            if (!rootModule) {
-                return;
-            }
-
-            v8pp::class_<ColorRGBA> cls(isolate);
-            cls.ctor<int, int, int, int>();
-
-            cls.property("r", &ColorRGBA::GetR);
-            cls.property("g", &ColorRGBA::GetG);
-            cls.property("b", &ColorRGBA::GetB);
-            cls.property("a", &ColorRGBA::GetA);
-
-            cls.function("toString", &ColorRGBA::ToString);
-            cls.function("toArray", &ColorRGBA::ToArray);
-
-            cls.function("add", &ColorRGBA::Add);
-            cls.function("sub", &ColorRGBA::Sub);
-            cls.function("mul", &ColorRGBA::Mul);
-            cls.function("div", &ColorRGBA::Div);
-
-            rootModule->class_("RGBA", cls);
+        static void Register(sol::state &luaEngine) {
+            sol::usertype<ColorRGBA> cls = luaEngine.new_usertype<ColorRGBA>("RGBA", sol::constructors<ColorRGBA(int, int, int, int)>());
+            cls.set("r", sol::readonly(&ColorRGBA::GetR));
+            cls.set("g", sol::readonly(&ColorRGBA::GetG));
+            cls.set("b", sol::readonly(&ColorRGBA::GetB));
+            cls.set("a", sol::readonly(&ColorRGBA::GetA));
+            cls["toString"] = &ColorRGBA::ToString;
+            cls["toArray"]  = &ColorRGBA::ToArray;
+            cls["add"]     = &ColorRGBA::Add;
+            cls["sub"]     = &ColorRGBA::Sub;
+            cls["mul"]     = &ColorRGBA::Mul;
+            cls["div"]     = &ColorRGBA::Div;
         }
     };
 } // namespace Framework::Scripting::Engines::Node::Builtins

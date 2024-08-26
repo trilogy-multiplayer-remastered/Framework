@@ -16,13 +16,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/vec3.hpp>
+#include <sol/sol.hpp>
 
 #include <iomanip>
 #include <list>
 #include <sstream>
-
-#include <v8pp/class.hpp>
-#include <v8pp/module.hpp>
 
 namespace Framework::Scripting::Builtins {
     class Quaternion final {
@@ -111,35 +109,25 @@ namespace Framework::Scripting::Builtins {
             _data = glm::quat(glm::angleAxis(angle, glm::vec3(x, y, z)));
         }
 
-        static void Register(v8::Isolate *isolate, v8pp::module *rootModule) {
-            if (!rootModule) {
-                return;
-            }
-
-            v8pp::class_<Quaternion> cls(isolate);
-            cls.ctor<float, float, float, float>();
-
-            cls.property("w", &Quaternion::GetW);
-            cls.property("x", &Quaternion::GetX);
-            cls.property("y", &Quaternion::GetY);
-            cls.property("z", &Quaternion::GetZ);
-            cls.property("length", &Quaternion::GetLength);
-
-            cls.function("toString", &Quaternion::ToString);
-            cls.function("toArray", &Quaternion::ToArray);
-
-            cls.function("add", &Quaternion::Add);
-            cls.function("sub", &Quaternion::Sub);
-            cls.function("mul", &Quaternion::Mul);
-            cls.function("lerp", &Quaternion::Lerp);
-            cls.function("conjugate", &Quaternion::Conjugate);
-            cls.function("cross", &Quaternion::Cross);
-            cls.function("dot", &Quaternion::Dot);
-            cls.function("inverse", &Quaternion::Inverse);
-            cls.function("fromEuler", &Quaternion::FromEuler);
-            cls.function("fromAxisAngle", &Quaternion::FromAxisAngle);
-
-            rootModule->class_("Quaternion", cls);
+        static void Register(sol::state &luaEngine) {
+            sol::usertype<Quaternion> cls = luaEngine.new_usertype<Quaternion>("Quaternion", sol::constructors<Quaternion(float, float, float, float)>());
+            cls.set("w", sol::readonly(&Quaternion::GetW));
+            cls.set("x", sol::readonly(&Quaternion::GetX));
+            cls.set("y", sol::readonly(&Quaternion::GetY));
+            cls.set("z", sol::readonly(&Quaternion::GetZ));
+            cls.set("length", sol::readonly(&Quaternion::GetLength));
+            cls["toString"] = &Quaternion::ToString;
+            cls["toArray"]  = &Quaternion::ToArray;
+            cls["add"]     = &Quaternion::Add;
+            cls["sub"]     = &Quaternion::Sub;
+            cls["mul"]     = &Quaternion::Mul;
+            cls["lerp"]     = &Quaternion::Lerp;
+            cls["conjugate"]     = &Quaternion::Conjugate;
+            cls["cross"]     = &Quaternion::Cross;
+            cls["dot"]     = &Quaternion::Dot;
+            cls["inverse"]     = &Quaternion::Inverse;
+            cls["fromEuler"]     = &Quaternion::FromEuler;
+            cls["fromAxisAngle"]     = &Quaternion::FromAxisAngle;
         }
     };
 } // namespace Framework::Scripting::Engines::Node::Builtins

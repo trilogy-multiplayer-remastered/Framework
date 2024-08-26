@@ -5,10 +5,24 @@
 #include "builtins/quaternion.h"
 #include "builtins/vector_2.h"
 #include "builtins/vector_3.h"
-#include "v8_helpers/v8_string.h"
 
 namespace Framework::Scripting {
-    static void On(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    int ConsoleLog(lua_State *L) {
+        int nargs = lua_gettop(L);
+
+        std::string str = "";
+
+        for (int i = 1; i <= nargs; ++i) {
+            str += luaL_tolstring(L, i, nullptr);
+            lua_pop(L, 1); // remove the string
+        }
+
+        Framework::Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->info(str);
+
+        return 0;
+    }
+
+    /*static void On(const v8::FunctionCallbackInfo<v8::Value> &info) {
         // Ensure that the method was called with exactly two arguments
         if (info.Length() != 2) {
             v8::Isolate *isolate = info.GetIsolate();
@@ -63,21 +77,19 @@ namespace Framework::Scripting {
 
         const auto engine = static_cast<Engine *>(ctx->GetAlignedPointerFromEmbedderData(0));
         engine->InvokeEvent(Helpers::ToString(eventName, isolate), Helpers::ToString(eventData, isolate));
-    }
+    }*/
 
     bool Engine::InitSDK(SDKRegisterCallback cb){
-        _module  = new v8pp::module(_isolate);
+        auto luaState = _luaEngine.lua_state();
 
-        // Bind the module handler
-        _module->function("on", &On);
-        _module->function("emit", &Emit);
+        _luaEngine["consoleLog"] = ConsoleLog;
 
         // Bind the builtins
-        Builtins::ColorRGB::Register(_isolate, _module);
-        Builtins::ColorRGBA::Register(_isolate, _module);
-        Builtins::Quaternion::Register(_isolate, _module);
-        Builtins::Vector3::Register(_isolate, _module);
-        Builtins::Vector2::Register(_isolate, _module);
+        Builtins::ColorRGB::Register(_luaEngine);
+        Builtins::ColorRGBA::Register(_luaEngine);
+        Builtins::Quaternion::Register(_luaEngine);
+        Builtins::Vector3::Register(_luaEngine);
+        Builtins::Vector2::Register(_luaEngine);
 
         // Always bind the mod-side in last
         if (cb) {

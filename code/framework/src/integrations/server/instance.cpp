@@ -40,7 +40,6 @@ namespace Framework::Integrations::Server {
         _firebaseWrapper  = std::make_unique<External::Firebase::Wrapper>();
         _worldEngine      = std::make_shared<World::ServerEngine>();
         _scriptingEngine  = std::make_shared<Scripting::ServerEngine>(_worldEngine);
-        _scriptingEngine->SetMainPath("gamemode");
         _playerFactory    = std::make_shared<World::Archetypes::PlayerFactory>();
         _streamingFactory = std::make_shared<World::Archetypes::StreamingFactory>();
         _masterlist       = std::make_unique<Services::MasterlistConnector>();
@@ -117,6 +116,8 @@ namespace Framework::Integrations::Server {
         };
 
         // Initialize the scripting engine
+        _scriptingEngine->SetMainPath("gamemode");
+        _scriptingEngine->LoadManifest();
         if (_scriptingEngine->InitServerEngine(sdkCallback) != Framework::Scripting::ModuleError::MODULE_NONE) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the scripting engine");
             return ServerError::SERVER_SCRIPTING_INIT_FAILED;
@@ -127,9 +128,9 @@ namespace Framework::Integrations::Server {
             return ServerError::SERVER_FIREBASE_WRAPPER_INIT_FAILED;
         }
 
-        if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
+        /*if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->error("Failed to contact masterlist server: Push key is empty");
-        }
+        }*/
         else if (!_opts.bindPublicServer) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->warn("Server will not be announced to masterlist");
         }
@@ -417,7 +418,7 @@ namespace Framework::Integrations::Server {
 
     void Instance::RegisterScriptingBuiltins(Framework::Scripting::SDKRegisterWrapper sdk) {
         // Register the entity builtin
-        Framework::Integrations::Scripting::Entity::Register(sdk.GetEngine()->GetIsolate(), sdk.GetEngine()->GetModule());
+        Framework::Integrations::Scripting::Entity::Register(sdk.GetEngine()->GetLuaEngine());
 
         // mod-specific builtins
         ModuleRegister(sdk);

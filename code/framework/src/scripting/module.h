@@ -9,6 +9,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 #include <string>
 
 #include "errors.h"
@@ -21,6 +22,8 @@ namespace Framework::Scripting {
     class Module {
       private:
         std::string _mainPath;
+        std::vector<std::string> _clientFiles;
+        std::vector<std::string> _serverFiles;
 
         std::unique_ptr<ClientEngine> _clientEngine;
         std::unique_ptr<ServerEngine> _serverEngine;
@@ -32,6 +35,8 @@ namespace Framework::Scripting {
         ModuleError InitClientEngine(SDKRegisterCallback);
         ModuleError InitServerEngine(SDKRegisterCallback);
         ModuleError Shutdown();
+
+        ModuleError LoadManifest();
 
         void Update() const;
         

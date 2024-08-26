@@ -3,12 +3,9 @@
 #include <function2.hpp>
 #include <string>
 
-#include <v8.h>
-
 namespace Framework::Scripting {
     class Engine;
-    using Callback = v8::CopyablePersistentTraits<v8::Function>::CopyablePersistent;
-
+    
     class SDKRegisterWrapper final {
       private:
         void *_engine                           = nullptr;

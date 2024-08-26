@@ -12,8 +12,7 @@
 #include "scripting/builtins/vector_3.h"
 
 #include <glm/glm.hpp>
-#include <v8pp/class.hpp>
-#include <v8pp/module.hpp>
+#include <sol/sol.hpp>
 
 #include "networking/network_server.h"
 
@@ -35,12 +34,9 @@ namespace Framework::Integrations::Scripting {
         flecs::entity _ent {};
 
       public:
+        Entity() = default;
         Entity(flecs::entity_t ent) {
             _ent = flecs::entity(CoreModules::GetWorldEngine()->GetWorld()->get_world(), ent);
-        }
-
-        static v8::Local<v8::Object> WrapEntity(v8::Isolate *isolate, flecs::entity e) {
-            return v8pp::class_<Framework::Integrations::Scripting::Entity>::create_object(isolate, e.id());
         }
 
         flecs::entity_t GetID() const {
@@ -108,24 +104,24 @@ namespace Framework::Integrations::Scripting {
             FW_SEND_SERVER_COMPONENT_GAME_RPC(Framework::World::RPC::SetFrame, _ent, *fr);
         }
 
-        v8::Local<v8::Object> GetPosition() const {
+        Framework::Scripting::Builtins::Vector3 GetPosition() const {
             const auto tr = _ent.get<Framework::World::Modules::Base::Transform>();
-            return v8pp::class_<Framework::Scripting::Builtins::Vector3>::create_object(v8::Isolate::GetCurrent(), tr->pos.x, tr->pos.y, tr->pos.z);
+            return Framework::Scripting::Builtins::Vector3(tr->pos.x, tr->pos.y, tr->pos.z);
         }
 
-        v8::Local<v8::Object> GetRotation() const {
+        Framework::Scripting::Builtins::Quaternion GetRotation() const {
             const auto tr = _ent.get<Framework::World::Modules::Base::Transform>();
-            return v8pp::class_<Framework::Scripting::Builtins::Quaternion>::create_object(v8::Isolate::GetCurrent(), tr->rot.w, tr->rot.x, tr->rot.y, tr->rot.z);
+            return Framework::Scripting::Builtins::Quaternion(tr->rot.w, tr->rot.x, tr->rot.y, tr->rot.z);
         }
 
-        v8::Local<v8::Object> GetVelocity() const {
+        Framework::Scripting::Builtins::Vector3 GetVelocity() const {
             const auto tr = _ent.get<Framework::World::Modules::Base::Transform>();
-            return v8pp::class_<Framework::Scripting::Builtins::Vector3>::create_object(v8::Isolate::GetCurrent(), tr->vel.x, tr->vel.y, tr->vel.z);
+            return Framework::Scripting::Builtins::Vector3(tr->vel.x, tr->vel.y, tr->vel.z);
         }
 
-        v8::Local<v8::Object> GetScale() const {
+        Framework::Scripting::Builtins::Vector3 GetScale() const {
             const auto fr = _ent.get<Framework::World::Modules::Base::Frame>();
-            return v8pp::class_<Framework::Scripting::Builtins::Vector3>::create_object(v8::Isolate::GetCurrent(), fr->scale.x, fr->scale.y, fr->scale.z);
+            return Framework::Scripting::Builtins::Vector3(fr->scale.x, fr->scale.y, fr->scale.z);
         }
 
         std::string GetModelName() const {
@@ -182,40 +178,34 @@ namespace Framework::Integrations::Scripting {
             Framework::World::ServerEngine::RemoveEntity(_ent);
         }
 
-        static void Register(v8::Isolate *isolate, v8pp::module *rootModule) {
-            if (!rootModule) {
-                return;
-            }
+        static void Register(sol::state &luaEngine) {
+            sol::usertype<Entity> cls = luaEngine.new_usertype<Entity>("Entity", sol::constructors<Entity()>());
+            cls.set("id", sol::readonly(&Entity::GetID));
+            cls.set("name", sol::readonly(&Entity::GetName));
+            cls.set("nickname", sol::readonly(&Entity::GetNickname));
 
-            v8pp::class_<Entity> cls(isolate);
-            cls.property("id", &Entity::GetID);
-            cls.property("name", &Entity::GetName);
-            cls.property("nickname", &Entity::GetNickname);
-
-            cls.function("destroy", &Entity::Destroy);
-            cls.function("getAlwaysVisible", &Entity::IsAlwaysVisible);
-            cls.function("getModelHash", &Entity::GetModelHash);
-            cls.function("getModelName", &Entity::GetModelName);
-            cls.function("getPosition", &Entity::GetPosition);
-            cls.function("getRotation", &Entity::GetRotation);
-            cls.function("getScale", &Entity::GetScale);
-            cls.function("getUpdateInterval", &Entity::GetUpdateInterval);
-            cls.function("getVelocity", &Entity::GetVelocity);
-            cls.function("getVirtualWorld", &Entity::GetVirtualWorld);
-            cls.function("getVisible", &Entity::IsVisible);
-            cls.function("setAlwaysVisible", &Entity::SetAlwaysVisible);
-            cls.function("setModelHash", &Entity::SetModelHash);
-            cls.function("setModelName", &Entity::SetModelName);
-            cls.function("setPosition", &Entity::SetPosition);
-            cls.function("setRotation", &Entity::SetRotation);
-            cls.function("setScale", &Entity::SetScale);
-            cls.function("setUpdateInterval", &Entity::SetUpdateInterval);
-            cls.function("setVelocity", &Entity::SetVelocity);
-            cls.function("setVirtualWorld", &Entity::SetVirtualWorld);
-            cls.function("setVisible", &Entity::SetVisible);
-            cls.function("toString", &Entity::ToString);
-
-            rootModule->class_("Entity", cls);
+            cls["destroy"] = &Entity::Destroy;
+            cls["getAlwaysVisible"] = &Entity::IsAlwaysVisible;
+            cls["getModelHash"] = &Entity::GetModelHash;
+            cls["getModelName"] = &Entity::GetModelName;
+            cls["getPosition"] = &Entity::GetPosition;
+            cls["getRotation"] = &Entity::GetRotation;
+            cls["getScale"] = &Entity::GetScale;
+            cls["getUpdateInterval"] = &Entity::GetUpdateInterval;
+            cls["getVelocity"] = &Entity::GetVelocity;
+            cls["getVirtualWorld"] = &Entity::GetVirtualWorld;
+            cls["getVisible"] = &Entity::IsVisible;
+            cls["setAlwaysVisible"] = &Entity::SetAlwaysVisible;
+            cls["setModelHash"] = &Entity::SetModelHash;
+            cls["setModelName"] = &Entity::SetModelName;
+            cls["setPosition"] = &Entity::SetPosition;
+            cls["setRotation"] = &Entity::SetRotation;
+            cls["setScale"] = &Entity::SetScale;
+            cls["setUpdateInterval"] = &Entity::SetUpdateInterval;
+            cls["setVelocity"] = &Entity::SetVelocity;
+            cls["setVirtualWorld"] = &Entity::SetVirtualWorld;
+            cls["setVisible"] = &Entity::SetVisible;
+            cls["toString"] = &Entity::ToString;
         }
     };
 } // namespace Framework::Integrations::Scripting
