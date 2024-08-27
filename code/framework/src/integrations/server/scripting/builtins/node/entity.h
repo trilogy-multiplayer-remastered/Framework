@@ -37,6 +37,9 @@ namespace Framework::Integrations::Scripting {
         Entity(flecs::entity_t ent) {
             _ent = flecs::entity(CoreModules::GetWorldEngine()->GetWorld()->get_world(), ent);
         }
+        Entity(flecs::entity ent) {
+            _ent = ent;
+        }
 
         flecs::entity_t GetID() const {
             return _ent.id();
