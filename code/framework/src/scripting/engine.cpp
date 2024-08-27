@@ -79,7 +79,7 @@ namespace Framework::Scripting {
         engine->InvokeEvent(Helpers::ToString(eventName, isolate), Helpers::ToString(eventData, isolate));
     }*/
 
-    bool Engine::InitSDK(SDKRegisterCallback cb){
+    bool Engine::InitCommonSDK() {
         auto luaState = _luaEngine.lua_state();
 
         _luaEngine["consoleLog"] = ConsoleLog;
@@ -90,11 +90,6 @@ namespace Framework::Scripting {
         Builtins::Quaternion::Register(_luaEngine);
         Builtins::Vector3::Register(_luaEngine);
         Builtins::Vector2::Register(_luaEngine);
-
-        // Always bind the mod-side in last
-        if (cb) {
-            cb(Framework::Scripting::SDKRegisterWrapper(this));
-        }
 
         return true;
     }

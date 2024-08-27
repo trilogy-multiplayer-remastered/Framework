@@ -20,7 +20,7 @@ namespace Framework::Scripting {
         virtual EngineError Shutdown()                = 0;
         virtual void Update()                         = 0;
 
-        bool InitSDK(SDKRegisterCallback);
+        bool InitCommonSDK();
 
         sol::state& GetLuaEngine() {
             return _luaEngine;

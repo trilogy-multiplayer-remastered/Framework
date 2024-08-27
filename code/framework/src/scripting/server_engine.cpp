@@ -52,8 +52,13 @@ namespace Framework::Scripting {
         setLuaPath(_luaEngine.lua_state(), std::string(_executionPath + "\\?.lua").c_str());
         setLuaPath(_luaEngine.lua_state(), std::string(_executionPath + "\\?\\?.lua").c_str());
 
-        // Init the SDK
-        InitSDK(cb);
+        // Init the common SDK
+        InitCommonSDK();
+
+        // Init the mod-level scripting layer
+        if (cb) {
+            cb(Framework::Scripting::SDKRegisterWrapper<ServerEngine>(this));
+        }
         
         return EngineError::ENGINE_NONE;
     }

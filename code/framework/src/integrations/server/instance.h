@@ -95,7 +95,7 @@ namespace Framework::Integrations::Server {
         void InitModules() const;
         void InitNetworkingMessages() const;
         bool LoadConfigFromJSON();
-        void RegisterScriptingBuiltins(Framework::Scripting::SDKRegisterWrapper);
+        void RegisterScriptingBuiltins(Framework::Scripting::ServerEngine *);
 
         // managers
         flecs::entity _weatherManager;
@@ -121,8 +121,8 @@ namespace Framework::Integrations::Server {
 
         virtual void PreShutdown() {}
 
-        virtual void ModuleRegister(Framework::Scripting::SDKRegisterWrapper sdk) {
-            (void)sdk;
+        virtual void ModuleRegister(Framework::Scripting::ServerEngine *engine) {
+            (void)engine;
         }
 
         void Update();

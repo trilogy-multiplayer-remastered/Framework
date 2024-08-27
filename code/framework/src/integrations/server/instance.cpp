@@ -111,8 +111,8 @@ namespace Framework::Integrations::Server {
             return ServerError::SERVER_WORLD_INIT_FAILED;
         }
 
-        const auto sdkCallback = [this](Framework::Scripting::SDKRegisterWrapper sdk) {
-            this->RegisterScriptingBuiltins(sdk);
+        const auto sdkCallback = [this](Framework::Scripting::SDKRegisterWrapper<Framework::Scripting::ServerEngine> sdk) {
+            this->RegisterScriptingBuiltins(sdk.GetEngine());
         };
 
         // Initialize the scripting engine
@@ -416,11 +416,11 @@ namespace Framework::Integrations::Server {
         Shutdown();
     }
 
-    void Instance::RegisterScriptingBuiltins(Framework::Scripting::SDKRegisterWrapper sdk) {
+    void Instance::RegisterScriptingBuiltins(Framework::Scripting::ServerEngine *engine) {
         // Register the entity builtin
-        Framework::Integrations::Scripting::Entity::Register(sdk.GetEngine()->GetLuaEngine());
+        Framework::Integrations::Scripting::Entity::Register(engine->GetLuaEngine());
 
         // mod-specific builtins
-        ModuleRegister(sdk);
+        ModuleRegister(engine);
     }
 } // namespace Framework::Integrations::Server

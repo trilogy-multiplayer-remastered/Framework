@@ -4,18 +4,21 @@
 #include <string>
 
 namespace Framework::Scripting {
-    class Engine;
-    
+    class ServerEngine;
+    class ClientEngine;
+
+    template <typename EngineKind>
     class SDKRegisterWrapper final {
       private:
-        void *_engine                           = nullptr;
+        EngineKind *_engine = nullptr;
 
       public:
-        SDKRegisterWrapper(void *engine): _engine(engine) {}
+        SDKRegisterWrapper(EngineKind *engine): _engine(engine) {}
 
-        Framework::Scripting::Engine *GetEngine() const {
-            return reinterpret_cast<Framework::Scripting::Engine *>(_engine);
+        EngineKind *GetEngine() const {
+            return _engine;
         }
     };
-    using SDKRegisterCallback = fu2::function<void(SDKRegisterWrapper)>;
+    using SDKRegisterCallback = fu2::function<void(SDKRegisterWrapper<ServerEngine>)>;
+    using SDKClientRegisterCallback = fu2::function<void(SDKRegisterWrapper<ClientEngine>)>;
 }
