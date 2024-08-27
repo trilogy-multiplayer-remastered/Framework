@@ -34,12 +34,11 @@ set(FRAMEWORK_SRC
 )
 
 set(FRAMEWORK_SERVER_SRC
-    src/scripting/module.cpp
-    src/scripting/engines/node/engine.cpp
-    src/scripting/engines/node/sdk.cpp
+    src/scripting/client_engine.cpp
+    src/scripting/engine.cpp
     src/scripting/events.cpp
-
-    src/scripting/engines/node/v8_helpers/v8_try_catch.cpp
+    src/scripting/module.cpp
+    src/scripting/server_engine.cpp
 
     src/http/webserver.cpp
 
@@ -153,7 +152,7 @@ if(WIN32)
 endif()
 
 link_shared_deps(FrameworkServer)
-target_link_libraries(FrameworkServer NodeJS libsig v8pp)
+target_link_libraries(FrameworkServer libsig Lua54)
 
 # Platform-dependent post processing
 if(WIN32)
