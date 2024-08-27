@@ -33,12 +33,25 @@ namespace Framework::Integrations::Scripting {
       protected:
         flecs::entity _ent {};
 
-      public:
-        Entity(flecs::entity_t ent) {
-            _ent = flecs::entity(CoreModules::GetWorldEngine()->GetWorld()->get_world(), ent);
+        void ValidateEntity() {
+            if (!_ent.is_valid() || !_ent.is_alive()) {
+                throw std::runtime_error(fmt::format("Entity handle '{}' is invalid!", _ent.id()));
+            }
+
+            const auto st = _ent.get<Framework::World::Modules::Base::Streamable>();
+            if (!st) {
+                throw std::runtime_error(fmt::format("Entity '{}' is protected!", _ent.id()));
+            }
         }
+      public:
         Entity(flecs::entity ent) {
             _ent = ent;
+            ValidateEntity();
+        }
+
+        Entity(flecs::entity_t ent) {
+            _ent = flecs::entity(CoreModules::GetWorldEngine()->GetWorld()->get_world(), ent);
+            ValidateEntity();
         }
 
         flecs::entity_t GetID() const {

@@ -111,23 +111,6 @@ namespace Framework::Integrations::Server {
             return ServerError::SERVER_WORLD_INIT_FAILED;
         }
 
-        const auto sdkCallback = [this](Framework::Scripting::SDKRegisterWrapper<Framework::Scripting::ServerEngine> sdk) {
-            this->RegisterScriptingBuiltins(sdk.GetEngine());
-        };
-
-        // Initialize the scripting engine
-        _scriptingEngine->SetMainPath("gamemode");
-        _scriptingEngine->LoadManifest();
-        if (_scriptingEngine->InitServerEngine(sdkCallback) != Framework::Scripting::ModuleError::MODULE_NONE) {
-            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the scripting engine");
-            return ServerError::SERVER_SCRIPTING_INIT_FAILED;
-        }
-
-        if (_opts.firebaseEnabled && _firebaseWrapper->Init(_opts.firebaseProjectId, _opts.firebaseAppId, _opts.firebaseApiKey) != External::Firebase::FirebaseError::FIREBASE_NONE) {
-            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the firebase wrapper");
-            return ServerError::SERVER_FIREBASE_WRAPPER_INIT_FAILED;
-        }
-
         /*if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->error("Failed to contact masterlist server: Push key is empty");
         }*/
@@ -152,6 +135,23 @@ namespace Framework::Integrations::Server {
 
         // Initialize mod subsystems
         PostInit();
+    
+        const auto sdkCallback = [this](Framework::Scripting::SDKRegisterWrapper<Framework::Scripting::ServerEngine> sdk) {
+            this->RegisterScriptingBuiltins(sdk.GetEngine());
+        };
+
+        // Initialize the scripting engine
+        _scriptingEngine->SetMainPath("gamemode");
+        _scriptingEngine->LoadManifest();
+        if (_scriptingEngine->InitServerEngine(sdkCallback) != Framework::Scripting::ModuleError::MODULE_NONE) {
+            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the scripting engine");
+            return ServerError::SERVER_SCRIPTING_INIT_FAILED;
+        }
+
+        if (_opts.firebaseEnabled && _firebaseWrapper->Init(_opts.firebaseProjectId, _opts.firebaseAppId, _opts.firebaseApiKey) != External::Firebase::FirebaseError::FIREBASE_NONE) {
+            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the firebase wrapper");
+            return ServerError::SERVER_FIREBASE_WRAPPER_INIT_FAILED;
+        }
 
         // Load the gamemode
         _scriptingEngine->GetServerEngine()->LoadScript();
