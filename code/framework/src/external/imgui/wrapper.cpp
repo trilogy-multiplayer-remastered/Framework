@@ -13,7 +13,6 @@
 #include <backends/imgui_impl_dx11.h>
 #include <backends/imgui_impl_dx12.h>
 #include <backends/imgui_impl_dx9.h>
-#include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_win32.h>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -31,10 +30,6 @@ namespace Framework::External::ImGUI {
         }
 
         if (!_config.windowHandle && _config.windowBackend == Graphics::PlatformBackend::PLATFORM_WIN32) {
-            return Error::IMGUI_WINDOW_NOT_SET;
-        }
-
-        if (!_config.sdlWindow && _config.windowBackend == Graphics::PlatformBackend::PLATFORM_SDL2) {
             return Error::IMGUI_WINDOW_NOT_SET;
         }
 
@@ -65,9 +60,6 @@ namespace Framework::External::ImGUI {
         case Graphics::PlatformBackend::PLATFORM_WIN32: {
             ImGui_ImplWin32_Init(_config.windowHandle);
         } break;
-        case Graphics::PlatformBackend::PLATFORM_SDL2: {
-            ImGui_ImplSDL2_InitForD3D(_config.sdlWindow);
-        } break;
         }
 
         _initialized = isContextInitialized = true;
@@ -95,9 +87,6 @@ namespace Framework::External::ImGUI {
         case Graphics::PlatformBackend::PLATFORM_WIN32: {
             ImGui_ImplWin32_Shutdown();
         } break;
-        case Graphics::PlatformBackend::PLATFORM_SDL2: {
-            ImGui_ImplSDL2_Shutdown();
-        } break;
         }
 
         ImGui::DestroyContext();
@@ -124,9 +113,6 @@ namespace Framework::External::ImGUI {
         switch (_config.windowBackend) {
         case Graphics::PlatformBackend::PLATFORM_WIN32: {
             ImGui_ImplWin32_NewFrame();
-        } break;
-        case Graphics::PlatformBackend::PLATFORM_SDL2: {
-            ImGui_ImplSDL2_NewFrame();
         } break;
         }
 
@@ -173,13 +159,6 @@ namespace Framework::External::ImGUI {
     }
 
     InputState Wrapper::ProcessEvent(const SDL_Event *event) const {
-        if (_config.windowBackend != Graphics::PlatformBackend::PLATFORM_SDL2) {
-            return InputState::ERROR_MISMATCH;
-        }
-
-        if (ImGui_ImplSDL2_ProcessEvent(event)) {
-            return InputState::BLOCK;
-        }
         return InputState::PASS;
     }
 

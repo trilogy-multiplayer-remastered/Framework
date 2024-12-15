@@ -65,7 +65,6 @@ namespace Framework::External::ImGUI::Widgets {
         }
         else {
             ImGui::SetNextWindowBgAlpha(_consoleUnfocusedAlpha);
-            ImGui::PushFontShadow(0xFF000000);
         }
 
         auto windowFlags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
@@ -298,10 +297,6 @@ namespace Framework::External::ImGUI::Widgets {
 
         ImGui::Separator();
         ImGui::TextColored(ImVec4(1, 0, 0, 1), "Press ALT to return controls to game or console");
-
-        if (!_consoleControl) {
-            ImGui::PopFontShadow();
-        }
 
         ImGui::End();
 
