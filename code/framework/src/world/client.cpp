@@ -11,8 +11,6 @@
 #include "game_rpc/set_frame.h"
 #include "game_rpc/set_transform.h"
 
-#include <optick.h>
-
 namespace Framework::World {
     EngineError ClientEngine::Init() {
         const auto status = Engine::Init(nullptr); // assigned by OnConnect
@@ -31,7 +29,6 @@ namespace Framework::World {
     }
 
     void ClientEngine::Update() {
-        OPTICK_EVENT();
         Engine::Update();
     }
 
@@ -69,7 +66,6 @@ namespace Framework::World {
         _networkPeer = peer;
 
         _streamEntities = _world->system<Modules::Base::Transform, Modules::Base::Streamable>("StreamEntities").kind(flecs::PostUpdate).interval(tickInterval).iter([this](flecs::iter it, Modules::Base::Transform *tr, Modules::Base::Streamable *rs) {
-            OPTICK_EVENT();
             const auto myGUID = _networkPeer->GetPeer()->GetMyGUID();
 
             for (size_t i = 0; i < it.count(); i++) {

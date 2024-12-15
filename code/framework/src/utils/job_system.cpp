@@ -10,8 +10,6 @@
 
 #include "logging/logger.h"
 
-#include <optick.h>
-
 namespace Framework::Utils {
     JobSystem *JobSystem::GetInstance() {
         static JobSystem *instance = nullptr;
@@ -33,9 +31,7 @@ namespace Framework::Utils {
 
         for (size_t i = 0; i < numThreads; i++) {
             auto worker = std::thread([=]() {
-                OPTICK_THREAD("JobSystemWorker");
                 while (!_pendingShutdown) {
-                    OPTICK_EVENT();
                     Job jobInfo {};
 
                     // Wait for a job to be available

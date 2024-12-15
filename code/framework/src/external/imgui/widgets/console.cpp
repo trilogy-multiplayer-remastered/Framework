@@ -9,7 +9,6 @@
 #include "console.h"
 
 #include <external/imgui/helpers.hpp>
-#include <external/optick/wrapper.h>
 #include <logging/logger.h>
 #include <utils/safe_win32.h>
 
@@ -38,8 +37,6 @@ namespace Framework::External::ImGUI::Widgets {
     }
 
     bool Console::Update() {
-        OPTICK_EVENT();
-
         if (!_isOpen) {
             return _isOpen;
         }

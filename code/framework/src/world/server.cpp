@@ -10,8 +10,6 @@
 
 #include "utils/time.h"
 
-#include <optick.h>
-
 namespace Framework::World {
     EngineError ServerEngine::Init(Framework::Networking::NetworkPeer *networkPeer, float tickInterval) {
         const auto status = Engine::Init(networkPeer);
@@ -171,8 +169,6 @@ namespace Framework::World {
             .interval(tickInterval)
             .iter([this](flecs::iter it, Modules::Base::Transform *tr, Modules::Base::Streamer *s, Modules::Base::Streamable *rs) {
                 for (size_t i = 0; i < it.count(); i++) {
-                    OPTICK_EVENT();
-
                     // Skip streamer entities we plan to remove.
                     if (it.entity(i).get<Modules::Base::PendingRemoval>() != nullptr)
                         continue;
@@ -244,7 +240,6 @@ namespace Framework::World {
     }
 
     void ServerEngine::Update() {
-        OPTICK_EVENT();
         Engine::Update();
     }
 
