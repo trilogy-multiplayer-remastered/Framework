@@ -158,10 +158,6 @@ namespace Framework::External::ImGUI {
         return Error::IMGUI_NONE;
     }
 
-    InputState Wrapper::ProcessEvent(const SDL_Event *event) const {
-        return InputState::PASS;
-    }
-
     InputState Wrapper::ProcessEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) const {
         if (_config.windowBackend != Graphics::PlatformBackend::PLATFORM_WIN32) {
             return InputState::ERROR_MISMATCH;

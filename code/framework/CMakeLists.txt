@@ -56,7 +56,6 @@ set(FRAMEWORK_CLIENT_SRC
     src/external/steam/wrapper.cpp
     src/external/discord/wrapper.cpp
     src/external/imgui/wrapper.cpp
-    src/external/sdl2/wrapper.cpp
 
     src/external/imgui/widgets/console.cpp
 
@@ -157,7 +156,7 @@ if(WIN32)
     target_link_directories(Framework PUBLIC ${CMAKE_SOURCE_DIR}/vendors/openssl/lib)
     target_link_libraries(Framework ws2_32 dbghelp crypt32 winmm iphlpapi psapi userenv)
 
-    target_link_libraries(FrameworkClient DiscordSDK DearImGUI SDL UltralightSDK)
+    target_link_libraries(FrameworkClient DiscordSDK DearImGUI UltralightSDK)
 
     set(CLIENT_SHARED_LIBS minhook SteamSDK udis86)
     target_link_libraries(FrameworkClient ${CLIENT_SHARED_LIBS} ${FREETYPE_LIBRARY})

@@ -13,8 +13,6 @@
 
 #include "graphics/types.h"
 
-#include <SDL2/SDL.h>
-
 #include <atomic>
 #include <function2.hpp>
 #include <mutex>
@@ -37,7 +35,6 @@ namespace Framework::External::ImGUI {
 
         // NOTE: Set up during init
         Graphics::Renderer *renderer = nullptr;
-        SDL_Window *sdlWindow        = nullptr;
         HWND windowHandle            = nullptr;
     };
 
@@ -57,7 +54,6 @@ namespace Framework::External::ImGUI {
         Error Init(Config &config);
         Error Shutdown();
 
-        InputState ProcessEvent(const SDL_Event *event) const;
         InputState ProcessEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) const;
         static void ShowCursor(bool show);
 
