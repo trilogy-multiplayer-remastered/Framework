@@ -324,12 +324,18 @@ namespace Framework::Launcher {
 
         // Run with type depending
         if (_config.launchType == ProjectLaunchType::PE_LOADING) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->info("Running PE");
+
             return RunWithPELoading();
         }
         else if (_config.launchType == ProjectLaunchType::DLL_INJECTION) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->info("Running DLL Injection");
+
             return RunWithDLLInjection();
         }
         else {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->info("No launch type specified.");
+
             return false;
         }
     }
@@ -462,87 +468,106 @@ namespace Framework::Launcher {
         return true;
     }
 
-    DLLInjectionResults InjectLibraryIntoProcess(HANDLE hProcess, const wchar_t *szLibraryPath) {
-        DLLInjectionResults result = INJECT_LIBRARY_RESULT_OK;
-
-        // Get the length of the library path
-        const size_t sLibraryPathLen = (wcslen(szLibraryPath) + 1) * sizeof(WCHAR);
-
-        // Allocate the a block of memory in our target process for the library path
-        void *pRemoteLibraryPath = VirtualAllocEx(hProcess, NULL, sLibraryPathLen, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-        // Write our library path to the allocated block of memory
-        SIZE_T sBytesWritten     = 0;
-        const BOOL bWriteSuccess = WriteProcessMemory(hProcess, pRemoteLibraryPath, szLibraryPath, sLibraryPathLen, &sBytesWritten);
-
-        if (!bWriteSuccess || sBytesWritten != sLibraryPathLen) {
-            result = INJECT_LIBRARY_RESULT_WRITE_FAILED;
-        }
-        else {
-            // Get the handle of Kernel32.dll
-            const HMODULE hKernel32 = GetModuleHandle("kernel32.dll");
-            if (hKernel32 == NULL) {
-                result = INJECT_LIBRARY_GET_MODULE_HANDLE_FAILED;
-            }
-            else {
-                // Get the address of the LoadLibraryA function from Kernel32.dll
-                const FARPROC pfnLoadLibraryW = GetProcAddress(hKernel32, "LoadLibraryW");
-                if (pfnLoadLibraryW == NULL) {
-                    result = INJECT_LIBRARY_GET_PROC_ADDRESS_FAILED;
-                }
-                else {
-                    // Create a thread inside the target process to load our library
-                    const HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)pfnLoadLibraryW, pRemoteLibraryPath, 0, NULL);
-
-                    if (hThread) {
-                        // Wait for the created thread to end
-                        WaitForSingleObject(hThread, INFINITE);
-
-                        DWORD dwExitCode = 0;
-                        if (GetExitCodeThread(hThread, &dwExitCode)) {
-                            // Should never happen as we wait for the thread to be finished.
-                            assert(dwExitCode != STILL_ACTIVE);
-                        }
-                        else {
-                            result = INJECT_LIBRARY_GET_RETURN_CODE_FAILED;
-                        }
-
-                        // In case LoadLibrary returns handle equal to zero there was some problem.
-                        if (dwExitCode == 0) {
-                            result = INJECT_LIBRARY_LOAD_LIBRARY_FAILED;
-                        }
-
-                        // Close our thread handle
-                        CloseHandle(hThread);
-                    }
-                    else {
-                        // Thread creation failed
-                        result = INJECT_LIBRARY_THREAD_CREATION_FAILED;
-                    }
-                }
-            }
-        }
-
-        // Free the allocated block of memory inside the target process
-        VirtualFreeEx(hProcess, pRemoteLibraryPath, 0, MEM_RELEASE);
-        return result;
+    HANDLE RemoteLibraryFunction_Thread(HANDLE hProc, LPVOID addr, LPVOID pParams) {
+        return CreateRemoteThread(hProc, nullptr, 0, (LPTHREAD_START_ROUTINE)addr, pParams, 0, nullptr);
     }
 
-    DLLInjectionResults InjectLibraryIntoProcess(DWORD dwProcessId, const wchar_t *szLibraryPath) {
-        // Open our target process
-        const HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwProcessId);
+    void FreeParams(HANDLE hProc, LPVOID pParams) {
+        VirtualFreeEx(hProc, pParams, 0, MEM_RELEASE);
+    }
 
-        if (!hProcess) {
-            // Failed to open the process
-            return INJECT_LIBRARY_OPEN_PROCESS_FAIL;
+    LPVOID AllocateParams(HANDLE hProc, SIZE_T paramsSize, LPVOID pParams) {
+        LPVOID mem = VirtualAllocEx(hProc, nullptr, paramsSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+        if (!mem)
+            return nullptr;
+
+        if (!WriteProcessMemory(hProc, mem, pParams, paramsSize, nullptr)) {
+            FreeParams(hProc, pParams);
+            return nullptr;
+        }
+        return mem;
+    }
+
+    HMODULE GetModule(HANDLE hProc, LPCSTR dllPath) {
+        HMODULE hMods[1024];
+        DWORD cbNeeded;
+        if (EnumProcessModules(hProc, hMods, sizeof hMods, &cbNeeded)) {
+            for (unsigned int i = 0; i < cbNeeded / sizeof HMODULE; i++) {
+                TCHAR szModName[MAX_PATH];
+
+                if (!GetModuleFileNameEx(hProc, hMods[i], szModName, sizeof szModName / sizeof TCHAR))
+                    continue;
+
+                if (strcmp(szModName, dllPath) == 0)
+                    return hMods[i];
+            }
+        }
+        return nullptr;
+    }
+
+    BOOL RemoteLibraryFunction(HANDLE hProc, LPCSTR moduleFileName, LPCSTR procName, SIZE_T paramsSize = 0, LPVOID pParams = nullptr) {
+        LPVOID pFunctionAddress = (LPVOID)GetProcAddress(GetModuleHandleA(moduleFileName), procName);
+        if (!pFunctionAddress) {
+            HMODULE hModule = GetModule(hProc, moduleFileName);
+            if (!hModule) {
+                Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->error("Module {} was not loaded. Unable to call remote function.", moduleFileName);
+                return FALSE;
+            }
+
+            HMODULE refLib = LoadLibraryExA(moduleFileName, nullptr, DONT_RESOLVE_DLL_REFERENCES);
+            FARPROC addr = GetProcAddress(refLib, procName);
+            uint64_t offset = (uint64_t)addr - (uint64_t)refLib;
+            FreeLibrary(refLib);
+
+            pFunctionAddress = (LPVOID)((uint64_t)hModule + offset);
         }
 
-        // Inject the library into the process
-        const DLLInjectionResults result = InjectLibraryIntoProcess(hProcess, szLibraryPath);
+        if (!pFunctionAddress) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->error("Unable to get remote function address {}!{}", moduleFileName, procName);
+            return FALSE;
+        }
 
-        // Close the process handle
-        CloseHandle(hProcess);
-        return result;
+        LPVOID lpRemoteParams = nullptr;
+        if (pParams) {
+            lpRemoteParams = AllocateParams(hProc, paramsSize, pParams);
+            if (!lpRemoteParams) {
+                Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->error("Unable to allocate memory for parameters.");
+                return FALSE;
+            }
+        }
+
+        HANDLE hThread = RemoteLibraryFunction_Thread(hProc, pFunctionAddress, lpRemoteParams);
+        if (!hThread) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->error("Unable to create remote thread for {}!{}", moduleFileName, procName);
+            return FALSE;
+        }
+
+        WaitForSingleObject(hThread, -1);
+        CloseHandle(hThread);
+
+        if (lpRemoteParams)
+            FreeParams(hProc, pParams);
+
+        return TRUE;
+    }
+
+    BOOL LoadDLL(HANDLE hProc, LPCSTR dllPath) {
+        if (GetModule(hProc, dllPath)) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->info("DLL {} is already loaded.", dllPath);
+            return false;
+        }
+
+        SIZE_T paramsSize = strlen(dllPath);
+        LPVOID params = (LPVOID)dllPath;
+        HMODULE hModule;
+        if (!RemoteLibraryFunction(hProc, "kernel32.dll", "LoadLibraryA", paramsSize, params) ||
+            !((hModule = GetModule(hProc, dllPath)))) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->error("Injecting {} failed.", dllPath);
+            return false;
+        }
+
+        Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->info("Injected {} status OK, hModule: {}", dllPath, (LPVOID)hModule);
+        return true;
     }
 
     bool Project::RunWithDLLInjection() {
@@ -578,19 +603,21 @@ namespace Framework::Launcher {
         }
 
         // Inject the client dll inside
-        const std::wstring completeDllPath           = gProjectDllPath + std::wstring(L"\\") + gDllName;
-        const DLLInjectionResults moduleInjectResult = InjectLibraryIntoProcess(piProcessInfo.hProcess, completeDllPath.c_str());
+        const std::wstring completeDllPath = gProjectDllPath + std::wstring(L"\\") + gDllName;
+        const auto dllPathNormal = Utils::StringUtils::WideToNormal(completeDllPath);
 
-        // Was it successfull?
-        if (moduleInjectResult != INJECT_LIBRARY_RESULT_OK) {
+        if (!LoadDLL(piProcessInfo.hProcess, dllPathNormal.c_str())) {
             MessageBoxA(nullptr, "Failed to inject module into game process", _config.name.c_str(), MB_ICONERROR);
-
             TerminateProcess(piProcessInfo.hProcess, 0);
             return false;
         }
 
         // Resume the game main thread
         ResumeThread(piProcessInfo.hThread);
+
+        if (RemoteLibraryFunction(piProcessInfo.hProcess, dllPathNormal.c_str(), "InitClient", sizeof(gProjectDllPath), &gProjectDllPath)) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->info("Called InitClient");
+        }
 
         return true;
     }
