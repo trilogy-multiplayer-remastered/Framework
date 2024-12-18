@@ -52,6 +52,10 @@ namespace Framework::Scripting {
             _scriptName = name;
         }
 
+        std::string GetScriptName() const {
+            return _scriptName;
+        }
+
         void SetExecutionPath(const std::string &path) {
             _executionPath = path;
         }
