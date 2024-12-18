@@ -87,7 +87,7 @@ namespace Framework::Integrations::Server {
         _opts.bindPort = result["port"].as<int32_t>();
 
         // Initialize the logging instance with the mod slug name
-        Logging::GetInstance()->SetLogName(_opts.modSlug);
+        Logging::GetInstance()->SetLogName("server");
 
         // Initialize the web server
         if (!_webServer->Init(_opts.webBindHost, _opts.webBindPort, _opts.httpServeDir)) {
