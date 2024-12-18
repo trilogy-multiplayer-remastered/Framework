@@ -23,6 +23,8 @@ namespace Framework::Services {
         std::string version;
         int32_t maxPlayers;
         int32_t currentPlayers;
+        int32_t webPort;
+        int32_t gamePort;
     };
     class MasterlistConnector {
         std::mutex _mutex;
