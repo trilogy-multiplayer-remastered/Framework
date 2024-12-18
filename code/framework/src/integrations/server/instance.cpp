@@ -107,11 +107,14 @@ namespace Framework::Integrations::Server {
             return ServerError::SERVER_WORLD_INIT_FAILED;
         }
 
-        /*if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
+        if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->error("Failed to contact masterlist server: Push key is empty");
-        }*/
+        }
         else if (!_opts.bindPublicServer) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->warn("Server will not be announced to masterlist");
+        }
+        else {
+            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Masterlist connector initialized");
         }
 
         // Init the signals handlers if enabled
@@ -369,10 +372,12 @@ namespace Framework::Integrations::Server {
 
             if (_masterlist->IsInitialized()) {
                 Services::ServerInfo info {};
-                // info.gameMode       = _scriptingEngine->GetGameModeName();
+                info.gameMode       = _scriptingEngine->GetServerEngine()->GetScriptName();
                 info.version        = Utils::Version::rel;
                 info.maxPlayers     = _opts.maxPlayers;
                 info.currentPlayers = _networkingEngine->GetNetworkServer()->GetPeer()->NumberOfConnections();
+                info.webPort        = _opts.webBindPort;
+                info.gamePort       = _opts.bindPort;
                 _masterlist->Ping(info);
             }
 
