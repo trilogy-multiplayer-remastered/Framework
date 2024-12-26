@@ -195,9 +195,9 @@ namespace Framework::Integrations::Scripting {
 
         static void Register(sol::state &luaEngine) {
             sol::usertype<Entity> cls = luaEngine.new_usertype<Entity>("Entity", sol::constructors<Entity(uint64_t)>());
-            cls.set("id", sol::readonly(&Entity::GetID));
-            cls.set("name", sol::readonly(&Entity::GetName));
-            cls.set("nickname", sol::readonly(&Entity::GetNickname));
+            cls["id"] = sol::property([](const Entity& self) { return self.GetID(); });
+            cls["name"] = sol::property([](const Entity& self) { return self.GetName(); });
+            cls["nickname"] = sol::property([](const Entity& self) { return self.GetNickname(); });
 
             cls["destroy"] = &Entity::Destroy;
             cls["getAlwaysVisible"] = &Entity::IsAlwaysVisible;
