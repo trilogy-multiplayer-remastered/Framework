@@ -48,91 +48,77 @@ namespace Framework::Utils::States {
         return true;
     }
 
-    bool Machine::Update() {
-        std::lock_guard<std::mutex> lock(_mutex);
-        
+   bool Machine::Update() {
+        std::unique_lock<std::mutex> lock(_mutex);
+
         if (_isUpdating) {
-            Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Recursive update detected");
             return false;
         }
-        
+
         _isUpdating = true;
-        bool result = false;
-        
-        try {
-            result = ProcessUpdate();
+
+        IState *currentState   = _currentState;
+        IState *nextState      = _nextState;
+        Context currentContext = _currentContext;
+
+        if (!currentState && !nextState) {
+            _isUpdating = false;
+            return false;
         }
-        catch (const std::exception& e) {
-            Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error during update: {}", e.what());
+
+        if (!currentState && nextState) {
+            _currentState   = nextState;
+            _currentContext = Context::Enter;
+            _nextState      = nullptr;
+            _isUpdating     = false;
+            return true;
+        }
+
+        lock.unlock();
+
+        bool result = false;
+        try {
+            switch (currentContext) {
+            case Context::Enter: {
+                result = currentState->OnEnter(this);
+                lock.lock();
+                _currentContext = result ? Context::Update : Context::Exit;
+                break;
+            }
+            case Context::Update: {
+                result = currentState->OnUpdate(this);
+                lock.lock();
+                if (result)
+                    _currentContext = Context::Exit;
+                break;
+            }
+            case Context::Exit: {
+                result = currentState->OnExit(this);
+                lock.lock();
+                _currentContext = Context::Next;
+                break;
+            }
+            case Context::Next: {
+                lock.lock();
+                _currentState   = nextState;
+                _currentContext = Context::Enter;
+                _nextState      = nullptr;
+                break;
+            }
+            default:
+                lock.lock();
+                _isUpdating = false;
+                return false;
+            }
+        }
+        catch (const std::exception &e) {
+            Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error in state {}: {}", currentState ? currentState->GetName() : "null", e.what());
+            lock.lock();
             _isUpdating = false;
             throw;
         }
-        
+
         _isUpdating = false;
-        return result;
-    }
-
-    bool Machine::ProcessUpdate() {
-        if (_currentState != nullptr) {
-            switch (_currentContext) {
-                case Context::Enter: {
-                    try {
-                        _currentContext = _currentState->OnEnter(this) ? Context::Update : Context::Exit;
-                    }
-                    catch (const std::exception& e) {
-                        Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error entering state {}: {}", _currentState->GetName(), e.what());
-                        _currentContext = Context::Exit;
-                        throw;
-                    }
-                    break;
-                }
-
-                case Context::Update: {
-                    try {
-                        if (_currentState->OnUpdate(this)) {
-                            _currentContext = Context::Exit;
-                        }
-                    }
-                    catch (const std::exception& e) {
-                        Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error updating state {}: {}", _currentState->GetName(), e.what());
-                        _currentContext = Context::Exit;
-                        throw;
-                    }
-                    break;
-                }
-
-                case Context::Exit: {
-                    try {
-                        _currentState->OnExit(this);
-                    }
-                    catch (const std::exception& e) {
-                        Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error exiting state {}: {}", _currentState->GetName(), e.what());
-                        // Continue to next state despite error
-                    }
-                    _currentContext = Context::Next;
-                    break;
-                }
-
-                case Context::Next: {
-                    _currentState = _nextState;
-                    _currentContext = Context::Enter;
-                    _nextState = nullptr;
-                    break;
-                }
-
-                default:
-                    return false;
-            }
-        }
-        else if (_nextState != nullptr) {
-            _currentState = _nextState;
-            _currentContext = Context::Enter;
-            _nextState = nullptr;
-        }
-        else {
-            return false;
-        }
-
         return true;
     }
 } // namespace Framework::Utils::States

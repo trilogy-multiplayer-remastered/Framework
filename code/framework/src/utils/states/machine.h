@@ -71,7 +71,6 @@ namespace Framework::Utils::States {
         }
 
       private:
-        bool ProcessUpdate();
         bool validateStateTransition(int32_t stateId) const;
     };
 } // namespace Framework::Utils::States

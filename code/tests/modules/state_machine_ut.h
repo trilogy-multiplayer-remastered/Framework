@@ -191,4 +191,39 @@ MODULE(state_machine, {
         
         EQUALS(ProcessingState::GetCounter() > 0, true);
     });
+
+    IT("handles recursive state updates safely", {
+        auto machine = std::make_unique<Machine>();
+        ProcessingState::ResetCounter();
+
+        // Create a state that tries to perform state machine operations during callbacks
+        class RecursiveState: public Framework::Utils::States::IState {
+          public:
+            const char *GetName() const override {
+                return "Recursive";
+            }
+            int32_t GetId() const override {
+                return 4;
+            }
+            bool OnEnter(Machine *machine) override {
+                // Try recursive update
+                machine->Update();
+                return true;
+            }
+            bool OnUpdate(Machine *machine) override {
+                return true;
+            }
+            bool OnExit(Machine *machine) override {
+                return true;
+            }
+        };
+
+        machine->RegisterState<ProcessingState>();
+        machine->RegisterState<RecursiveState>();
+
+        // This should not deadlock
+        EQUALS(machine->RequestNextState(4), true);
+        machine->Update();
+        machine->Update();
+    });
 });
