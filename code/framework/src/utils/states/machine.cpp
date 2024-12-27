@@ -7,35 +7,41 @@
  */
 
 #include "machine.h"
-
 #include <logging/logger.h>
 
 namespace Framework::Utils::States {
-    Machine::Machine(): _currentState(nullptr), _nextState(nullptr), _currentContext(Context::Enter) {}
+    Machine::Machine(): _currentState(nullptr), _nextState(nullptr), _currentContext(Context::Enter), _isUpdating(false) {}
 
     Machine::~Machine() {
+        std::lock_guard<std::mutex> lock(_mutex);
         _states.clear();
     }
 
+    bool Machine::validateStateTransition(int32_t stateId) const {
+        return true;  // Override in derived classes for custom transition rules
+    }
+
     bool Machine::RequestNextState(int32_t stateId) {
-        // Has the state been registered?
-        const auto it = _states.find(stateId);
+        std::lock_guard<std::mutex> lock(_mutex);
+            
+        if (!validateStateTransition(stateId)) {
+            return false;
+        }
+
+        auto it = _states.find(stateId);
         if (it == _states.end()) {
             return false;
         }
 
-        // The state has already been requested
-        if ((*it).second == _nextState) {
+        if (it->second.get() == _nextState) {
             return false;
         }
 
-        // Already transitionning to a new state, so we cannot request a new one.
         if (_nextState != nullptr) {
             return false;
         }
 
-        // Mark it for processing and force the actual state to exit
-        _nextState      = (*it).second;
+        _nextState = it->second.get();
         _currentContext = Context::Exit;
 
         Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->debug("[StateMachine] Requesting new state {}", _nextState->GetName());
@@ -43,37 +49,85 @@ namespace Framework::Utils::States {
     }
 
     bool Machine::Update() {
+        std::lock_guard<std::mutex> lock(_mutex);
+        
+        if (_isUpdating) {
+            Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Recursive update detected");
+            return false;
+        }
+        
+        _isUpdating = true;
+        bool result = false;
+        
+        try {
+            result = ProcessUpdate();
+        }
+        catch (const std::exception& e) {
+            Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error during update: {}", e.what());
+            _isUpdating = false;
+            throw;
+        }
+        
+        _isUpdating = false;
+        return result;
+    }
+
+    bool Machine::ProcessUpdate() {
         if (_currentState != nullptr) {
-            // Otherwise, we just process the current state
-            if (_currentContext == Context::Enter) {
-                // If init succeed, next context is obviously the update, otherwise it means that something failed and
-                // exit is required
-                _currentContext = _currentState->OnEnter(this) ? Context::Update : Context::Exit;
-            }
-            else if (_currentContext == Context::Update) {
-                // If the state answer true to update call, it means that it willed only a single tick, otherwise we
-                // keep ticking
-                if (_currentState->OnUpdate(this)) {
-                    _currentContext = Context::Exit;
+            switch (_currentContext) {
+                case Context::Enter: {
+                    try {
+                        _currentContext = _currentState->OnEnter(this) ? Context::Update : Context::Exit;
+                    }
+                    catch (const std::exception& e) {
+                        Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error entering state {}: {}", _currentState->GetName(), e.what());
+                        _currentContext = Context::Exit;
+                        throw;
+                    }
+                    break;
                 }
-            }
-            else if (_currentContext == Context::Exit) {
-                _currentState->OnExit(this);
-                _currentContext = Context::Next;
-            }
-            else if (_currentContext == Context::Next) {
-                _currentState   = _nextState;
-                _currentContext = Context::Enter;
-                _nextState      = nullptr;
-            }
-            else {
-                return false;
+
+                case Context::Update: {
+                    try {
+                        if (_currentState->OnUpdate(this)) {
+                            _currentContext = Context::Exit;
+                        }
+                    }
+                    catch (const std::exception& e) {
+                        Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error updating state {}: {}", _currentState->GetName(), e.what());
+                        _currentContext = Context::Exit;
+                        throw;
+                    }
+                    break;
+                }
+
+                case Context::Exit: {
+                    try {
+                        _currentState->OnExit(this);
+                    }
+                    catch (const std::exception& e) {
+                        Framework::Logging::GetInstance()->Get(FRAMEWORK_INNER_UTILS)->error("[StateMachine] Error exiting state {}: {}", _currentState->GetName(), e.what());
+                        // Continue to next state despite error
+                    }
+                    _currentContext = Context::Next;
+                    break;
+                }
+
+                case Context::Next: {
+                    _currentState = _nextState;
+                    _currentContext = Context::Enter;
+                    _nextState = nullptr;
+                    break;
+                }
+
+                default:
+                    return false;
             }
         }
         else if (_nextState != nullptr) {
-            _currentState   = _nextState;
+            _currentState = _nextState;
             _currentContext = Context::Enter;
-            _nextState      = nullptr;
+            _nextState = nullptr;
         }
         else {
             return false;
