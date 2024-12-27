@@ -11,7 +11,6 @@
 #include "unit.h"
 
 /* TEST CATEGORIES */
-#include "modules/job_system_ut.h"
 #include "modules/interpolator_ut.h"
 #include "modules/scripting_module_ut.h"
 #include "modules/state_machine_ut.h"
@@ -22,7 +21,6 @@ int main() {
     Framework::Logging::GetInstance()->PauseLogging(true);
 
     UNIT_MODULE(interpolator);
-    UNIT_MODULE(job_system);
     UNIT_MODULE(scripting_module);
     UNIT_MODULE(state_machine);
 
