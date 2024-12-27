@@ -1,25 +1,18 @@
 /*
  * MafiaHub OSS license
- * Copyright (c) 2021-2023, MafiaHub. All rights reserved.
+ * Copyright (c) 2021-2024, MafiaHub. All rights reserved.
  *
  * This file comes from MafiaHub, hosted at https://github.com/MafiaHub/Framework.
  * See LICENSE file in the source repository for information regarding licensing.
  */
 
 #include "job_system.h"
-
 #include "logging/logger.h"
 
 namespace Framework::Utils {
-    JobSystem *JobSystem::GetInstance() {
-        static JobSystem *instance = nullptr;
-        if (instance == nullptr) {
-            instance = new JobSystem();
-            if (!instance->Init()) {
-                Logging::GetLogger(FRAMEWORK_INNER_JOBS)->error("Default job system could not be initialized");
-            }
-        }
-        return instance;
+    JobSystem* JobSystem::GetInstance() {
+        static JobSystem instance;
+        return &instance;
     }
 
     JobSystem::~JobSystem() {
@@ -27,87 +20,191 @@ namespace Framework::Utils {
     }
 
     bool JobSystem::Init(uint32_t numThreads) {
+        if (_initialized) {
+            return false;
+        }
+
         _pendingShutdown = false;
+        _threads.reserve(numThreads);
 
         for (size_t i = 0; i < numThreads; i++) {
-            auto worker = std::thread([=]() {
-                while (!_pendingShutdown) {
-                    Job jobInfo {};
-
-                    // Wait for a job to be available
-                    {
-                        const std::lock_guard<std::recursive_mutex> lock(_mutex);
-                        bool last_empty = false;
-
-                        for (auto [queue, end, id] = std::tuple {_jobs.begin(), _jobs.end(), 0}; queue != end; ++queue, ++id) {
-                            if (queue->empty()) {
-                                last_empty = ((queue + 1) == end);
-                                continue;
-                            }
-                            else if (!last_empty && ((_counter++ % GetJobPriorityFromIndex(id)) != 0)) {
-                                continue;
-                            }
-
-                            last_empty = false;
-                            jobInfo    = queue->front();
-                            queue->pop();
-                            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job with priority {} is now being processed", id);
-
-                            break;
-                        }
-                    }
-
-                    if (jobInfo.status == JobStatus::Invalid) {
-                        std::this_thread::yield();
-                    }
-                    else {
-                        jobInfo.status = JobStatus::Running;
-                        if (!jobInfo.proc()) {
-                            // TODO: Improve reports
-                            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->warn("Job has failed its execution");
-
-                            if (jobInfo.repeatOnFail) {
-                                Logging::GetLogger(FRAMEWORK_INNER_JOBS)->debug("Job is enqueued for another attempt");
-                                jobInfo.status = JobStatus::Pending;
-                                _jobs[jobInfo.priority].push(jobInfo);
-                            }
-                        }
-                        else {
-                            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job is done");
-                        }
-                    }
-                }
+            _threads.emplace_back([this, i]() {
+                WorkerThread(i);
             });
-
-            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job worker thread {} was spawned", i);
-            worker.detach();
-            _threads.push_back(std::move(worker));
         }
 
-        Logging::GetLogger(FRAMEWORK_INNER_JOBS)->debug("Job system was initialised");
-
+        _initialized = true;
+        Logging::GetLogger(FRAMEWORK_INNER_JOBS)->debug("Job system initialized with {} threads", numThreads);
         return true;
     }
 
-    bool JobSystem::Shutdown() {
+    bool JobSystem::Shutdown(std::chrono::milliseconds timeout) {
+        if (!_initialized) {
+            return false;
+        }
+
         _pendingShutdown = true;
-        for (auto &thread : _threads) {
-            thread.join();
-            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->debug("Job worker thread was terminated");
+        _jobAvailable.notify_all();
+
+        const auto deadline = Clock::now() + timeout;
+        bool allThreadsJoined = true;
+
+        for (auto& thread : _threads) {
+            if (thread.joinable()) {
+                if (Clock::now() < deadline) {
+                    thread.join();
+                } else {
+                    allThreadsJoined = false;
+                    Logging::GetLogger(FRAMEWORK_INNER_JOBS)->error("Thread join timeout");
+                }
+            }
         }
-        _threads.clear();
-        return true;
+
+        if (allThreadsJoined) {
+            _threads.clear();
+            _initialized = false;
+            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->debug("Job system shut down successfully");
+        }
+
+        return allThreadsJoined;
     }
 
-    void JobSystem::EnqueueJob(const JobProc &job, JobPriority priority, bool repeatOnFail) {
-        const std::lock_guard<std::recursive_mutex> lock(_mutex);
-        Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job with priority {} was enqueued", priority);
-        _jobs[priority].push(Job {job, priority, JobStatus::Pending, repeatOnFail});
+    void JobSystem::EnqueueJob(const JobProc& job, JobPriority priority, bool repeatOnFail) {
+        if (_pendingShutdown) {
+            return;
+        }
+
+        const std::lock_guard<std::mutex> lock(_mutex);
+        const auto priorityIndex = static_cast<size_t>(priority);
+        
+        _jobs[priorityIndex].push(Job{
+            job,
+            priority,
+            JobStatus::Pending,
+            repeatOnFail,
+            Clock::now()
+        });
+
+        _stats.totalJobs++;
+        _stats.jobsByPriority[priorityIndex]++;
+        _jobAvailable.notify_one();
+        
+        Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job with priority {} was enqueued", priorityIndex);
     }
 
-    bool JobSystem::IsQueueEmpty(JobPriority priority) {
-        const std::lock_guard<std::recursive_mutex> lock(_mutex);
-        return _jobs[priority].empty();
+    bool JobSystem::IsQueueEmpty(JobPriority priority) const {
+        const std::lock_guard<std::mutex> lock(_mutex);
+        return _jobs[static_cast<size_t>(priority)].empty();
+    }
+
+    bool JobSystem::IsPendingShutdown() const {
+        return _pendingShutdown;
+    }
+
+    JobSystem::JobStats JobSystem::GetStats() const {
+        JobStats stats;
+        stats.totalJobs = _stats.totalJobs.load(std::memory_order_relaxed);
+        stats.failedJobs = _stats.failedJobs.load(std::memory_order_relaxed);
+        stats.retriedJobs = _stats.retriedJobs.load(std::memory_order_relaxed);
+        
+        for (size_t i = 0; i < static_cast<size_t>(JobPriority::NumJobPriorities); ++i) {
+            stats.jobsByPriority[i] = _stats.jobsByPriority[i].load(std::memory_order_relaxed);
+        }
+        return stats;
+    }
+
+    void JobSystem::WorkerThread(size_t threadId) {
+        Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job worker thread {} started", threadId);
+
+        while (!_pendingShutdown) {
+            Job jobInfo{};
+            bool hasJob = false;
+
+            {
+                std::unique_lock<std::mutex> lock(_mutex);
+                
+                _jobAvailable.wait(lock, [this]() {
+                    return _pendingShutdown || HasAvailableJobs();
+                });
+
+                if (_pendingShutdown) {
+                    break;
+                }
+
+                hasJob = TryGetNextJob(jobInfo);
+            }
+
+            if (hasJob) {
+                ProcessJob(jobInfo);
+            }
+        }
+
+        Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job worker thread {} terminated", threadId);
+    }
+
+    bool JobSystem::HasAvailableJobs() const {
+        return std::any_of(_jobs.begin(), _jobs.end(), [](const auto& queue) { return !queue.empty(); });
+    }
+
+    bool JobSystem::TryGetNextJob(Job& outJob) {
+        const auto now = Clock::now();
+        bool last_empty = false;
+
+        for (size_t id = 0; id < _jobs.size(); ++id) {
+            auto& queue = _jobs[id];
+            
+            if (queue.empty()) {
+                last_empty = (id == _jobs.size() - 1);
+                continue;
+            }
+
+            if (!last_empty && ((_counter++ % GetJobPriorityFromIndex(id)) != 0)) {
+                continue;
+            }
+
+            outJob = queue.front();
+            queue.pop();
+
+            // Log long wait times
+            auto waitTime = std::chrono::duration_cast<std::chrono::milliseconds>(now - outJob.enqueueTime).count();
+            if (waitTime > 1000) {
+                Logging::GetLogger(FRAMEWORK_INNER_JOBS)->warn("Job with priority {} waited {}ms in queue", id, waitTime);
+            }
+
+            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job with priority {} is now being processed", id);
+            return true;
+        }
+
+        return false;
+    }
+
+    void JobSystem::ProcessJob(Job& job) {
+        job.status = JobStatus::Running;
+        
+        const auto startTime = Clock::now();
+        bool success = job.proc();
+        const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - startTime).count();
+
+        if (!success) {
+            _stats.failedJobs++;
+            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->warn("Job failed after {}ms", duration);
+
+            if (job.repeatOnFail) {
+                _stats.retriedJobs++;
+                Logging::GetLogger(FRAMEWORK_INNER_JOBS)->debug("Job is enqueued for another attempt");
+                
+                job.status = JobStatus::Pending;
+                const std::lock_guard<std::mutex> lock(_mutex);
+                _jobs[static_cast<size_t>(job.priority)].push(job);
+            }
+        } else {
+            Logging::GetLogger(FRAMEWORK_INNER_JOBS)->trace("Job completed successfully in {}ms", duration);
+        }
+    }
+
+    constexpr uint8_t JobSystem::GetJobPriorityFromIndex(size_t index) {
+        constexpr uint8_t priorities[] = {2, 3, 5, 7, 11};
+        return priorities[index];
     }
 
 } // namespace Framework::Utils
