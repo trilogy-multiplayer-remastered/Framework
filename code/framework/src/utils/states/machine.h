@@ -69,8 +69,5 @@ namespace Framework::Utils::States {
             std::lock_guard<std::mutex> lock(_mutex);
             return _nextState;
         }
-
-      private:
-        bool validateStateTransition(int32_t stateId) const;
     };
 } // namespace Framework::Utils::States

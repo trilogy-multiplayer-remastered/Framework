@@ -17,16 +17,8 @@ namespace Framework::Utils::States {
         _states.clear();
     }
 
-    bool Machine::validateStateTransition(int32_t stateId) const {
-        return true;  // Override in derived classes for custom transition rules
-    }
-
     bool Machine::RequestNextState(int32_t stateId) {
-        std::lock_guard<std::mutex> lock(_mutex);
-            
-        if (!validateStateTransition(stateId)) {
-            return false;
-        }
+        std::lock_guard<std::mutex> lock(_mutex);   
 
         auto it = _states.find(stateId);
         if (it == _states.end()) {
