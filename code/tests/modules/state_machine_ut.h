@@ -15,7 +15,9 @@
 // Test states
 class InitialState: public Framework::Utils::States::IState {
 public:
-    std::string_view GetName() const override { return "Initial"; }
+    const char *GetName() const override {
+        return "Initial";
+    }
     int32_t GetId() const override { return 1; }
     bool OnEnter(Framework::Utils::States::Machine* machine) override { return true; }
     bool OnUpdate(Framework::Utils::States::Machine* machine) override { return false; }
@@ -29,7 +31,9 @@ public:
     static void ResetCounter() { _counter = 0; }
     static int GetCounter() { return _counter.load(); }
 
-    std::string_view GetName() const override { return "Processing"; }
+   const char *GetName() const override {
+        return "Processing";
+    }
     int32_t GetId() const override { return 2; }
     bool OnEnter(Framework::Utils::States::Machine* machine) override { 
         _counter++; 
@@ -46,7 +50,9 @@ public:
     static void ResetFailures() { _failures = 0; }
     static int GetFailures() { return _failures.load(); }
 
-    std::string_view GetName() const override { return "Failing"; }
+    const char *GetName() const override {
+        return "Failing";
+    }
     int32_t GetId() const override { return 3; }
     bool OnEnter(Framework::Utils::States::Machine* machine) override { return true; }
     bool OnUpdate(Framework::Utils::States::Machine* machine) override { 
