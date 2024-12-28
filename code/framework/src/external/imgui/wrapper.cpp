@@ -163,6 +163,10 @@ namespace Framework::External::ImGUI {
             return InputState::ERROR_MISMATCH;
         }
 
+        if (!_processEventEnabled) {
+            return InputState::PASS;
+        }
+
         if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
             return InputState::BLOCK;
         }
