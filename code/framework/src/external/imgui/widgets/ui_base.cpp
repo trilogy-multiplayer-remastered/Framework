@@ -60,7 +60,6 @@ namespace Framework::External::ImGUI::Widgets {
 
     void UIBase::CleanUpUIWindow() {
         if (!AreControlsLocked()) {
-            ImGui::PopFontShadow();
 
             ImGui::PopStyleColor();
             ImGui::PopStyleColor();
@@ -74,7 +73,6 @@ namespace Framework::External::ImGUI::Widgets {
             flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
 
             ImGui::SetNextWindowBgAlpha(_styleWindowBackgroundAlphaWhenControlsAreUnlocked);
-            ImGui::PushFontShadow(_styleFontShadowWhenControlsAreUnlocked);
 
             ImGuiStyle &style = ImGui::GetStyle();
             ImGui::PushStyleColor(ImGuiCol_TitleBg, style.Colors[ImGuiCol_TitleBgCollapsed]);
