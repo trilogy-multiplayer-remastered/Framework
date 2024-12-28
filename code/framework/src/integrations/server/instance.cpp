@@ -18,14 +18,11 @@
 
 #include "../shared/modules/mod.hpp"
 
-#include "scripting/engines/node/sdk.h"
-
 #include "utils/version.h"
 
 #include "cxxopts.hpp"
-#include "optick.h"
 
-#include "scripting/builtins/node/entity.h"
+#include "scripting/builtins/entity.h"
 
 #include <cppfs/FileHandle.h>
 #include <cppfs/fs.h>
@@ -35,11 +32,9 @@
 
 namespace Framework::Integrations::Server {
     Instance::Instance(): _alive(false), _shuttingDown(false) {
-        OPTICK_START_CAPTURE();
         _networkingEngine = std::make_shared<Networking::Engine>();
         _webServer        = std::make_shared<HTTP::Webserver>();
         _fileConfig       = std::make_unique<Utils::Config>();
-        _firebaseWrapper  = std::make_unique<External::Firebase::Wrapper>();
         _worldEngine      = std::make_shared<World::ServerEngine>();
         _scriptingEngine  = std::make_shared<Scripting::ServerEngine>(_worldEngine);
         _playerFactory    = std::make_shared<World::Archetypes::PlayerFactory>();
@@ -49,7 +44,6 @@ namespace Framework::Integrations::Server {
 
     Instance::~Instance() {
         sig_detach(this);
-        OPTICK_STOP_CAPTURE();
     }
 
     ServerError Instance::Init(InstanceOptions &opts) {
@@ -113,26 +107,9 @@ namespace Framework::Integrations::Server {
             return ServerError::SERVER_WORLD_INIT_FAILED;
         }
 
-        const auto sdkCallback = [this](Framework::Scripting::Engines::SDKRegisterWrapper sdk) {
-            this->RegisterScriptingBuiltins(sdk);
-        };
-
-        // Initialize the scripting engine
-        _scriptingEngine->SetProcessArguments(opts.argc, opts.argv);
-        _scriptingEngine->SetModName(opts.modName);
-        if (_scriptingEngine->Init(Framework::Scripting::EngineTypes::ENGINE_NODE, sdkCallback) != Framework::Scripting::ModuleError::MODULE_NONE) {
-            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the scripting engine");
-            return ServerError::SERVER_SCRIPTING_INIT_FAILED;
-        }
-
-        if (_opts.firebaseEnabled && _firebaseWrapper->Init(_opts.firebaseProjectId, _opts.firebaseAppId, _opts.firebaseApiKey) != External::Firebase::FirebaseError::FIREBASE_NONE) {
-            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the firebase wrapper");
-            return ServerError::SERVER_FIREBASE_WRAPPER_INIT_FAILED;
-        }
-
-        if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
+        /*if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->error("Failed to contact masterlist server: Push key is empty");
-        }
+        }*/
         else if (!_opts.bindPublicServer) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->warn("Server will not be announced to masterlist");
         }
@@ -154,9 +131,21 @@ namespace Framework::Integrations::Server {
 
         // Initialize mod subsystems
         PostInit();
+    
+        const auto sdkCallback = [this](Framework::Scripting::SDKRegisterWrapper<Framework::Scripting::ServerEngine> sdk) {
+            this->RegisterScriptingBuiltins(sdk.GetEngine());
+        };
+
+        // Initialize the scripting engine
+        _scriptingEngine->SetMainPath("gamemode");
+        _scriptingEngine->LoadManifest();
+        if (_scriptingEngine->InitServerEngine(sdkCallback) != Framework::Scripting::ModuleError::MODULE_NONE) {
+            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->critical("Failed to initialize the scripting engine");
+            return ServerError::SERVER_SCRIPTING_INIT_FAILED;
+        }
 
         // Load the gamemode
-        _scriptingEngine->LoadGamemode();
+        _scriptingEngine->GetServerEngine()->LoadScript();
 
         Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Host:\t{}", _opts.bindHost);
         Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Port:\t{}", _opts.bindPort);
@@ -366,7 +355,6 @@ namespace Framework::Integrations::Server {
     void Instance::Update() {
         const auto start = std::chrono::high_resolution_clock::now();
         if (_nextTick <= start) {
-            OPTICK_EVENT();
             if (_networkingEngine) {
                 _networkingEngine->Update();
             }
@@ -381,7 +369,7 @@ namespace Framework::Integrations::Server {
 
             if (_masterlist->IsInitialized()) {
                 Services::ServerInfo info {};
-                info.gameMode       = _scriptingEngine->GetEngine()->GetGameModeName();
+                // info.gameMode       = _scriptingEngine->GetGameModeName();
                 info.version        = Utils::Version::rel;
                 info.maxPlayers     = _opts.maxPlayers;
                 info.currentPlayers = _networkingEngine->GetNetworkServer()->GetPeer()->NumberOfConnections();
@@ -418,15 +406,11 @@ namespace Framework::Integrations::Server {
         Shutdown();
     }
 
-    void Instance::RegisterScriptingBuiltins(Framework::Scripting::Engines::SDKRegisterWrapper sdk) {
-        switch (sdk.GetKind()) {
-        case Framework::Scripting::EngineTypes::ENGINE_NODE: {
-            const auto nodeSDK = sdk.GetNodeSDK();
-            Framework::Integrations::Scripting::Entity::Register(nodeSDK->GetIsolate(), nodeSDK->GetModule());
-        } break;
-        }
+    void Instance::RegisterScriptingBuiltins(Framework::Scripting::ServerEngine *engine) {
+        // Register the entity builtin
+        Framework::Integrations::Scripting::Entity::Register(engine->GetLuaEngine());
 
         // mod-specific builtins
-        ModuleRegister(sdk);
+        ModuleRegister(engine);
     }
 } // namespace Framework::Integrations::Server

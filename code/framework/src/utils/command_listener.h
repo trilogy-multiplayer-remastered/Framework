@@ -9,6 +9,7 @@
 #pragma once
 
 #include <function2.hpp>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <queue>

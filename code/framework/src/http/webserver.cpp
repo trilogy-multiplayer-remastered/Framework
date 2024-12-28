@@ -9,7 +9,6 @@
 #include "webserver.h"
 
 #include <logging/logger.h>
-#include <optick.h>
 
 namespace Framework::HTTP {
     Webserver::Webserver() {
@@ -70,6 +69,12 @@ namespace Framework::HTTP {
     void Webserver::RegisterRequest(const char *path, const RequestCallback &callback) const {
         if (strlen(path) > 0 && callback) {
             _server->Get(path, callback);
+        }
+    }
+
+    void Webserver::RegisterPostRequest(const char* path, const PostCallback& callback) const {
+        if (strlen(path) > 0 && callback) {
+            _server->Post(path, callback);
         }
     }
 

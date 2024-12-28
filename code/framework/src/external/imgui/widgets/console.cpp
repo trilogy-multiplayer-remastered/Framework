@@ -14,7 +14,6 @@
 #include <sstream>
 
 #include <external/imgui/helpers.hpp>
-#include <external/optick/wrapper.h>
 
 #include <logging/logger.h>
 
@@ -28,8 +27,6 @@ namespace Framework::External::ImGUI::Widgets {
     void Console::OnClose() {}
 
     void Console::OnUpdate() {
-        OPTICK_EVENT();
-
         auto ringBuffer = Logging::GetInstance()->GetRingBuffer();
 
         auto windowFlags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;

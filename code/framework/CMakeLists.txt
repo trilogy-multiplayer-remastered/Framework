@@ -10,7 +10,6 @@ set(FRAMEWORK_SRC
     src/utils/config.cpp
     src/utils/interpolator.cpp
     src/utils/time.cpp
-    src/utils/job_system.cpp
     src/utils/command_listener.cpp
     src/utils/command_processor.cpp
     src/utils/hashing.cpp
@@ -19,8 +18,6 @@ set(FRAMEWORK_SRC
     src/utils/states/machine.cpp
 
     src/external/sentry/wrapper.cpp
-    src/external/firebase/wrapper.cpp
-    src/external/optick/wrapper.cpp
 
     src/world/engine.cpp
     src/world/server.cpp
@@ -34,12 +31,11 @@ set(FRAMEWORK_SRC
 )
 
 set(FRAMEWORK_SERVER_SRC
-    src/scripting/module.cpp
-    src/scripting/engines/node/engine.cpp
-    src/scripting/engines/node/sdk.cpp
+    src/scripting/client_engine.cpp
+    src/scripting/engine.cpp
     src/scripting/events.cpp
-
-    src/scripting/engines/node/v8_helpers/v8_try_catch.cpp
+    src/scripting/module.cpp
+    src/scripting/server_engine.cpp
 
     src/http/webserver.cpp
 
@@ -59,7 +55,6 @@ set(FRAMEWORK_CLIENT_SRC
     src/external/steam/wrapper.cpp
     src/external/discord/wrapper.cpp
     src/external/imgui/wrapper.cpp
-    src/external/sdl2/wrapper.cpp
 
     src/external/imgui/widgets/ui_base.cpp
 
@@ -139,7 +134,7 @@ macro(link_shared_deps target_name)
     endif()
 
     # Global libraries
-    target_link_libraries(${target_name} slikenet glm spdlog cppfs nlohmann_json Sentry httplib ${OPENSSL_LIBRARIES} Firebase Curl OptickCore flecs_static semver)
+    target_link_libraries(${target_name} slikenet glm spdlog cppfs nlohmann_json Sentry httplib ${OPENSSL_LIBRARIES} Curl flecs_static semver)
 
     # Required libraries for windows
     if(WIN32)
@@ -155,16 +150,16 @@ if(WIN32)
 endif()
 
 link_shared_deps(FrameworkServer)
-target_link_libraries(FrameworkServer NodeJS libsig v8pp)
+target_link_libraries(FrameworkServer libsig Lua54)
 
 # Platform-dependent post processing
 if(WIN32)
     target_link_directories(Framework PUBLIC ${CMAKE_SOURCE_DIR}/vendors/openssl/lib)
     target_link_libraries(Framework ws2_32 dbghelp crypt32 winmm iphlpapi psapi userenv)
 
-    target_link_libraries(FrameworkClient DiscordSDK DearImGUI SDL UltralightSDK)
+    target_link_libraries(FrameworkClient DiscordSDK DearImGUI UltralightSDK)
 
-    set(CLIENT_SHARED_LIBS minhook GalaxySDK SteamSDK udis86)
+    set(CLIENT_SHARED_LIBS minhook SteamSDK udis86)
     target_link_libraries(FrameworkClient ${CLIENT_SHARED_LIBS} ${FREETYPE_LIBRARY})
 
     link_shared_deps(FrameworkLoader)

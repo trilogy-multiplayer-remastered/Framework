@@ -30,6 +30,7 @@ add_library(Lua54 STATIC
     src/lua54/ltm.c
     src/lua54/lua.c
     src/lua54/lundump.c
+    src/lua54/lutf8lib.c
     src/lua54/lvm.c
     src/lua54/lzio.c
 )

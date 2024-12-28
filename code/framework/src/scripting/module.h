@@ -9,50 +9,47 @@
 #pragma once
 
 #include <map>
+#include <vector>
 #include <string>
 
-#include "engine_kind.h"
-#include "engines/callback.h"
-#include "engines/engine.h"
 #include "errors.h"
+#include "shared.h"
+
+#include "client_engine.h"
+#include "server_engine.h"
 
 namespace Framework::Scripting {
     class Module {
       private:
-        int _processArgsCount = 0;
-        char **_processArgs   = nullptr;
-        std::string _modName;
+        std::string _mainPath;
+        std::vector<std::string> _clientFiles;
+        std::vector<std::string> _serverFiles;
 
-        Engines::IEngine *_engine = nullptr;
-        EngineTypes _engineType   = EngineTypes::ENGINE_NODE;
+        std::unique_ptr<ClientEngine> _clientEngine;
+        std::unique_ptr<ServerEngine> _serverEngine;
 
       public:
-        Module()  = default;
+        Module() = default;
         ~Module() = default;
 
-        ModuleError Init(EngineTypes, Engines::SDKRegisterCallback);
+        ModuleError InitClientEngine(SDKRegisterCallback);
+        ModuleError InitServerEngine(SDKRegisterCallback);
         ModuleError Shutdown();
 
+        ModuleError LoadManifest();
+
         void Update() const;
-
-        bool LoadGamemode() const;
-        bool UnloadGamemode() const;
-
-        Engines::IEngine *GetEngine() const {
-            return _engine;
+        
+        ClientEngine *GetClientEngine() const {
+            return _clientEngine.get();
         }
 
-        EngineTypes GetEngineType() const {
-            return _engineType;
+        ServerEngine *GetServerEngine() const {
+            return _serverEngine.get();
         }
 
-        void SetProcessArguments(int argc, char **argv) {
-            _processArgsCount = argc;
-            _processArgs      = argv;
-        }
-
-        void SetModName(std::string name) {
-            _modName = name;
+        void SetMainPath(const std::string &mainPath) {
+            _mainPath = mainPath;
         }
     };
 } // namespace Framework::Scripting
