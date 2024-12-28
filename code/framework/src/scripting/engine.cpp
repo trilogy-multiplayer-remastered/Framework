@@ -8,6 +8,7 @@
 
 #include "engine.h"
 
+#include "builtins/console.h"
 #include "builtins/color_rgb.h"
 #include "builtins/color_rgba.h"
 #include "builtins/quaternion.h"
@@ -15,21 +16,6 @@
 #include "builtins/vector_3.h"
 
 namespace Framework::Scripting {
-    int ConsoleLog(lua_State *L) {
-        int nargs = lua_gettop(L);
-
-        std::string str = "";
-
-        for (int i = 1; i <= nargs; ++i) {
-            str += luaL_tolstring(L, i, nullptr);
-            lua_pop(L, 1); // remove the string
-        }
-
-        Framework::Logging::GetLogger(FRAMEWORK_INNER_SCRIPTING)->info(str);
-
-        return 0;
-    }
-
     /*static void On(const v8::FunctionCallbackInfo<v8::Value> &info) {
         // Ensure that the method was called with exactly two arguments
         if (info.Length() != 2) {
@@ -90,9 +76,8 @@ namespace Framework::Scripting {
     bool Engine::InitCommonSDK() {
         auto luaState = _luaEngine.lua_state();
 
-        _luaEngine["consoleLog"] = ConsoleLog;
-
         // Bind the builtins
+        Builtins::Console::Register(_luaEngine);
         Builtins::ColorRGB::Register(_luaEngine);
         Builtins::ColorRGBA::Register(_luaEngine);
         Builtins::Quaternion::Register(_luaEngine);
