@@ -81,6 +81,10 @@ namespace Framework::GUI {
             _shouldDisplay = enable;
         }
 
+        bool ShouldDisplay() const {
+            return _shouldDisplay;
+        }
+
         inline void AddEventListener(std::string eventName, const EventCallbackProc &proc) {
             if (!_sdk) {
                 return;
