@@ -10,7 +10,6 @@ set(FRAMEWORK_SRC
     src/utils/config.cpp
     src/utils/interpolator.cpp
     src/utils/time.cpp
-    src/utils/job_system.cpp
     src/utils/command_listener.cpp
     src/utils/command_processor.cpp
     src/utils/hashing.cpp
@@ -56,6 +55,8 @@ set(FRAMEWORK_CLIENT_SRC
     src/external/steam/wrapper.cpp
     src/external/discord/wrapper.cpp
     src/external/imgui/wrapper.cpp
+
+    src/external/imgui/widgets/ui_base.cpp
 
     src/external/imgui/widgets/console.cpp
 
