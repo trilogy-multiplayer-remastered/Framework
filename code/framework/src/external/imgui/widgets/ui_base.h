@@ -14,6 +14,7 @@
 namespace Framework::External::ImGUI::Widgets {
     class UIBase {
       public:
+        virtual ~UIBase()   = default;
         using WindowContent = fu2::function<void() const>;
 
       private:
