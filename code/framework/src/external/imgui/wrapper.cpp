@@ -40,6 +40,7 @@ namespace Framework::External::ImGUI {
         io.ConfigWindowsResizeFromEdges = true;
 
         ImGui::StyleColorsDark();
+        io.Fonts->AddFontFromFileTTF("C:\\Users\\revan\\CLionProjects\\Framework\\cmake-build-debug-visual-studio\\bin\\resources\\font.ttf", 12);
 
         switch (_config.renderBackend) {
         case Graphics::RendererBackend::BACKEND_D3D_9: {

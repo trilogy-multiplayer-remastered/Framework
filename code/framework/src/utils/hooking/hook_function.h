@@ -32,14 +32,17 @@ class HookFunctionBase {
 
 class InitFunction: public HookFunctionBase {
   private:
-    void (*m_function)();
+  bool m_disabled;
+  void (*m_function)();
 
   public:
-    InitFunction(void (*function)()) {
+    InitFunction(void (*function)(), const bool disabled = false) {
         m_function = function;
+        m_disabled = disabled;
     }
 
     void Run() override {
+      if (!m_disabled)
         m_function();
     }
 };

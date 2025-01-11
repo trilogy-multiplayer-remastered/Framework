@@ -47,7 +47,7 @@ namespace Framework::Integrations::Server {
         std::string bindMapName;
         int32_t bindPort;
         std::string bindPassword;
-        bool bindPublicServer = true;
+        bool bindPublicServer = false;
 
         std::string webBindHost;
         int32_t webBindPort;
