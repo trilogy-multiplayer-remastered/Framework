@@ -29,7 +29,8 @@ namespace Framework::Networking::Messages {
         }
 
         void FromParameters(const std::string &playerName, const std::string &playerSteamId, const std::string &playerDiscordId, const std::string &clientVersion, const std::string &fwVersion, const std::string &gameVersion, const std::string &gameName) {
-            Framework::Logging::GetLogger("dbg")->debug(playerName);
+            Logging::GetLogger("ClientHandshake")->debug("Incoming connection: {} {}", playerName, clientVersion);
+
             _playerName      = SLNet::RakString(playerName.c_str());
             _playerSteamId   = SLNet::RakString(playerSteamId.c_str());
             _playerDiscordId = SLNet::RakString(playerDiscordId.c_str());

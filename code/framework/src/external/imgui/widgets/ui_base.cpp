@@ -70,7 +70,7 @@ namespace Framework::External::ImGUI::Widgets {
 
     void UIBase::CreateUIWindow(const char *name, const WindowContent &windowContent, bool *pOpen, ImGuiWindowFlags flags) const {
         if (!AreControlsLocked()) {
-            flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+            flags |= ImGuiWindowFlags_NoResize;
 
             ImGui::SetNextWindowBgAlpha(_styleWindowBackgroundAlphaWhenControlsAreUnlocked);
 
