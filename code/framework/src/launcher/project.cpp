@@ -633,24 +633,24 @@ namespace Framework::Launcher {
         gImagePath = _gamePath.c_str();
         gDllName   = _config.destinationDllName.c_str();
 
-        const HANDLE hFile = CreateFileW(_gamePath.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        const HANDLE hFile = CreateFileW(_gamePath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (hFile == INVALID_HANDLE_VALUE) {
-            MessageBox(nullptr, "Failed to find executable image", _config.name.c_str(), MB_ICONERROR);
+            MessageBoxA(nullptr, "Failed to find executable image", _config.name.c_str(), MB_ICONERROR);
             return false;
         }
 
         // determine file length
-        DWORD dwFileLength = SetFilePointer(hFile, 0, nullptr, FILE_END);
-        if (dwFileLength == INVALID_SET_FILE_POINTER) {
+        DWORD dwFileLength = GetFileSize(hFile, nullptr);
+        if (dwFileLength == INVALID_FILE_SIZE) {
             CloseHandle(hFile);
-            MessageBox(nullptr, "Could not inquire executable image size", _config.name.c_str(), MB_ICONERROR);
+            MessageBoxA(nullptr, "Could not inquire executable image size", _config.name.c_str(), MB_ICONERROR);
             return false;
         }
 
         const HANDLE hMapping = CreateFileMappingW(hFile, nullptr, PAGE_READONLY, 0, 0, nullptr);
-        if (hMapping == INVALID_HANDLE_VALUE) {
+        if (hMapping == nullptr) {
             CloseHandle(hFile);
-            MessageBox(nullptr, "Could not map executable image", _config.name.c_str(), MB_ICONERROR);
+            MessageBoxA(nullptr, "Could not map executable image", _config.name.c_str(), MB_ICONERROR);
             return false;
         }
 
@@ -658,7 +658,7 @@ namespace Framework::Launcher {
         if (!data) {
             CloseHandle(hMapping);
             CloseHandle(hFile);
-            MessageBox(nullptr, "Could not map view of executable image", _config.name.c_str(), MB_ICONERROR);
+            MessageBoxA(nullptr, "Could not map view of executable image", _config.name.c_str(), MB_ICONERROR);
             return false;
         }
 
@@ -666,94 +666,109 @@ namespace Framework::Launcher {
 
         auto base = GetModuleHandle(nullptr);
 
-        // Create the loader instance
-        Loaders::ExecutableLoader loader(data);
-        loader.SetLoadLimit(_config.loadLimit);
-        loader.SetLibraryLoader([this](const char *library) -> HMODULE {
-            if (_libraryLoader) {
-                const auto mod = _libraryLoader(library);
-                if (mod) {
-                    return mod;
+        try {
+            // Create the loader instance
+            Loaders::ExecutableLoader loader(data);
+            loader.SetLoadLimit(_config.loadLimit);
+            loader.SetLibraryLoader([this](const char *library) -> HMODULE {
+                if (_libraryLoader) {
+                    const auto mod = _libraryLoader(library);
+                    if (mod) {
+                        return mod;
+                    }
                 }
-            }
-            auto mod = LoadLibraryA(library);
-            if (mod == nullptr) {
-                mod = (HMODULE)INVALID_HANDLE_VALUE;
-            }
-            return mod;
-        });
-        loader.SetFunctionResolver([this](HMODULE hmod, const char *exportFn) -> LPVOID {
-            if (_functionResolver) {
-                const auto ret = _functionResolver(hmod, exportFn);
-                if (ret) {
-                    return ret;
+                auto mod = LoadLibraryA(library);
+                if (mod == nullptr) {
+                    mod = (HMODULE)INVALID_HANDLE_VALUE;
                 }
-            }
+                return mod;
+            });
+            loader.SetFunctionResolver([this](HMODULE hmod, const char *exportFn) -> LPVOID {
+                if (_functionResolver) {
+                    const auto ret = _functionResolver(hmod, exportFn);
+                    if (ret) {
+                        return ret;
+                    }
+                }
 
-            const auto exportName = std::string(exportFn);
+                const auto exportName = std::string(exportFn);
 
-            if (!_config.loadClientManually && exportName == "GetStartupInfoW") {
-                return reinterpret_cast<LPVOID>(GetStartupInfoW_Stub);
-            }
-            if (!_config.loadClientManually && exportName == "GetStartupInfoA") {
-                return reinterpret_cast<LPVOID>(GetStartupInfoA_Stub);
-            }
-            if (exportName == "GetCommandLineW") {
-                return reinterpret_cast<LPVOID>(GetCommandLineW_Stub);
-            }
-            if (exportName == "GetCommandLineA") {
-                return reinterpret_cast<LPVOID>(GetCommandLineA_Stub);
-            }
-            if (exportName == "GetModuleFileNameA") {
-                return reinterpret_cast<LPVOID>(GetModuleFileNameA_Hook);
-            }
-            if (exportName == "GetModuleFileNameExA") {
-                return reinterpret_cast<LPVOID>(GetModuleFileNameExA_Hook);
-            }
-            if (exportName == "GetModuleFileNameW") {
-                return reinterpret_cast<LPVOID>(GetModuleFileNameW_Hook);
-            }
-            if (exportName == "GetModuleFileNameExW") {
-                return reinterpret_cast<LPVOID>(GetModuleFileNameExW_Hook);
-            }
-            if (exportName == "GetModuleHandleA") {
-                return reinterpret_cast<LPVOID>(GetModuleHandleA_Hook);
-            }
-            if (exportName == "GetModuleHandleExA") {
-                return reinterpret_cast<LPVOID>(GetModuleHandleExA_Hook);
-            }
-            if (exportName == "GetModuleHandleW") {
-                return reinterpret_cast<LPVOID>(GetModuleHandleW_Hook);
-            }
-            if (exportName == "GetModuleHandleExW") {
-                return reinterpret_cast<LPVOID>(GetModuleHandleExW_Hook);
-            }
-            return static_cast<LPVOID>(GetProcAddress(hmod, exportFn));
-        });
+                if (!_config.loadClientManually && exportName == "GetStartupInfoW") {
+                    return reinterpret_cast<LPVOID>(GetStartupInfoW_Stub);
+                }
+                if (!_config.loadClientManually && exportName == "GetStartupInfoA") {
+                    return reinterpret_cast<LPVOID>(GetStartupInfoA_Stub);
+                }
+                if (exportName == "GetCommandLineW") {
+                    return reinterpret_cast<LPVOID>(GetCommandLineW_Stub);
+                }
+                if (exportName == "GetCommandLineA") {
+                    return reinterpret_cast<LPVOID>(GetCommandLineA_Stub);
+                }
+                if (exportName == "GetModuleFileNameA") {
+                    return reinterpret_cast<LPVOID>(GetModuleFileNameA_Hook);
+                }
+                if (exportName == "GetModuleFileNameExA") {
+                    return reinterpret_cast<LPVOID>(GetModuleFileNameExA_Hook);
+                }
+                if (exportName == "GetModuleFileNameW") {
+                    return reinterpret_cast<LPVOID>(GetModuleFileNameW_Hook);
+                }
+                if (exportName == "GetModuleFileNameExW") {
+                    return reinterpret_cast<LPVOID>(GetModuleFileNameExW_Hook);
+                }
+                if (exportName == "GetModuleHandleA") {
+                    return reinterpret_cast<LPVOID>(GetModuleHandleA_Hook);
+                }
+                if (exportName == "GetModuleHandleExA") {
+                    return reinterpret_cast<LPVOID>(GetModuleHandleExA_Hook);
+                }
+                if (exportName == "GetModuleHandleW") {
+                    return reinterpret_cast<LPVOID>(GetModuleHandleW_Hook);
+                }
+                if (exportName == "GetModuleHandleExW") {
+                    return reinterpret_cast<LPVOID>(GetModuleHandleExW_Hook);
+                }
+                return static_cast<LPVOID>(GetProcAddress(hmod, exportFn));
+            });
 
-        loader.SetTLSInitializer([&](void **base, uint32_t *index) {
-            const auto tlsExport = (void (*)(void **, uint32_t *))GetProcAddress(tlsDll, "GetThreadLocalStorage");
-            tlsExport(base, index);
-        });
+            loader.SetTLSInitializer([&](void **base, uint32_t *index) {
+                const auto tlsExport = (void (*)(void **, uint32_t *))GetProcAddress(tlsDll, "GetThreadLocalStorage");
+                tlsExport(base, index);
+            });
 
-        loader.LoadIntoModule(base);
-        loader.Protect();
+            loader.LoadIntoModule(base);
+            loader.Protect();
 
-        // Once loaded, we can close handles
-        UnmapViewOfFile(data);
-        CloseHandle(hMapping);
-        CloseHandle(hFile);
+            // Once loaded, we can close handles
+            UnmapViewOfFile(data);
+            CloseHandle(hMapping);
+            CloseHandle(hFile);
 
-        // Acquire the entry point reference
-        const auto entry_point = static_cast<void (*)()>(loader.GetEntryPoint());
+            // Acquire the entry point reference
+            const auto entry_point = static_cast<void (*)()>(loader.GetEntryPoint());
 
-        hook::set_base(reinterpret_cast<uintptr_t>(base));
+            hook::set_base(reinterpret_cast<uintptr_t>(base));
 
-        if (_preLaunchFunctor)
-            _preLaunchFunctor();
+            if (_preLaunchFunctor)
+                _preLaunchFunctor();
 
-        InvokeEntryPoint(entry_point);
-        return true;
+            // Initialize client DLL before launching game
+            InitialiseClientDLL();
+
+            InvokeEntryPoint(entry_point);
+            return true;
+        }
+        catch (const std::exception& e) {
+            Logging::GetLogger(FRAMEWORK_INNER_LAUNCHER)->error("Error during PE loading: {}", e.what());
+
+            UnmapViewOfFile(data);
+            CloseHandle(hMapping);
+            CloseHandle(hFile);
+
+            MessageBoxA(nullptr, e.what(), "PE Loading Error", MB_ICONERROR);
+            return false;
+        }
     }
 
     void Project::InvokeEntryPoint(void (*entryPoint)()) {
