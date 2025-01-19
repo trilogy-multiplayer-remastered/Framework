@@ -45,7 +45,7 @@ namespace Framework::World {
       protected:
         flecs::entity _streamEntities;
         flecs::query<Modules::Base::ServerID> _queryGetEntityByServerID;
-        OnEntityDestroyCallback _onEntityDestroyCallback;
+        std::vector<OnEntityDestroyCallback> _onEntityDestroyCallbacks;
 
       private:
         void InitRPCs(Networking::NetworkPeer *peer) const;
@@ -64,8 +64,8 @@ namespace Framework::World {
         flecs::entity GetEntityByServerID(flecs::entity_t id) const;
         static flecs::entity_t GetServerID(flecs::entity entity);
 
-        void SetOnEntityDestroyCallback(OnEntityDestroyCallback cb) {
-            _onEntityDestroyCallback = cb;
+        void AddOnEntityDestroyCallback(const OnEntityDestroyCallback &cb) {
+            _onEntityDestroyCallbacks.push_back(cb);
         }
     };
 } // namespace Framework::World

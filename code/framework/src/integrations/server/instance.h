@@ -47,7 +47,7 @@ namespace Framework::Integrations::Server {
         std::string bindMapName;
         int32_t bindPort;
         std::string bindPassword;
-        bool bindPublicServer = true;
+        bool bindPublicServer = false;
 
         std::string webBindHost;
         int32_t webBindPort;
@@ -58,7 +58,7 @@ namespace Framework::Integrations::Server {
         bool enableSignals;
 
         // update intervals
-        float tickInterval         = 0.016667f;
+        float tickInterval         = 0.006667f;
         float streamerTickInterval = 0.033334f;
 
         // args

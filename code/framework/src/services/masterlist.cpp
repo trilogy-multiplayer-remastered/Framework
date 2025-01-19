@@ -12,7 +12,7 @@
 
 namespace Framework::Services {
     MasterlistConnector::MasterlistConnector() {
-        _client = std::make_shared<httplib::Client>("https://api.mafiahub.dev");
+        _client = std::make_shared<httplib::Client>("https://api.trilogy.mp");
     }
     bool MasterlistConnector::Init(const std::string &pushKey) {
         if (pushKey.empty()) {
@@ -23,6 +23,8 @@ namespace Framework::Services {
         _isInitialized = true;
         _pingThread    = std::thread(&MasterlistConnector::PingThread, this);
         _lastPingAt    = Utils::Time::GetTimePoint();
+
+        Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Masterlist connector initialized");
         return true;
     }
     bool MasterlistConnector::Shutdown() {
@@ -48,6 +50,8 @@ namespace Framework::Services {
 
                 // Build the payload
                 httplib::Params params {
+                    {"web_port", std::to_string(_storedInfo.webPort)},
+                    {"game_port", std::to_string(_storedInfo.gamePort)},
                     {"gamemode", _storedInfo.gameMode},
                     {"version", _storedInfo.version},
                     {"max_players", std::to_string(_storedInfo.maxPlayers)},

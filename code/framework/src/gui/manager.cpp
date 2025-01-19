@@ -54,9 +54,10 @@ namespace Framework::GUI {
 
         // Update the renderer
         std::lock_guard lock(_renderMutex);
+        _renderer->RefreshDisplay(0);
+
         _renderer->Update();
         _renderer->Render();
-        _renderer->RefreshDisplay(0);
 
         // Update the views
         for (auto &view : _views) {

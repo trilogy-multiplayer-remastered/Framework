@@ -1,158 +1,137 @@
-/*
- * MafiaHub OSS license
- * Copyright (c) 2021-2023, MafiaHub. All rights reserved.
- *
- * This file comes from MafiaHub, hosted at https://github.com/MafiaHub/Framework.
- * See LICENSE file in the source repository for information regarding licensing.
- */
-
 #pragma once
 
+#include "time.h"
+
+#include <algorithm>
 #include <chrono>
-#include <function2.hpp>
+#include <cmath>
 #include <glm/ext.hpp>
+#include <memory>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <stdexcept>
 
 namespace Framework::Utils {
+    namespace math {
+        inline float Unlerp(const float from, const float to, const float pos) {
+            if (from == to) return 1.0f;
+            return (pos - from) / (to - from);
+        }
+
+        inline float Unlerp(const Time::TimePoint &from, const Time::TimePoint &to, const Time::TimePoint &pos) {
+            const float range = std::chrono::duration<float, std::milli>(to - from).count();
+            if (range < std::numeric_limits<float>::epsilon()) return 1.0f;
+            return std::chrono::duration<float, std::milli>(pos - from).count() / range;
+        }
+    } // namespace math
+
     class Interpolator {
       public:
         using TimePoint = std::chrono::high_resolution_clock::time_point;
+
         template <typename T>
         class Value {
           public:
-            explicit Value() {
-                _startTime  = TimePoint::max();
-                _finishTime = TimePoint::max();
-            }
+            virtual ~Value() = default;
+            Value() : _startTime(TimePoint::max()), _finishTime(TimePoint::max()) {}
+
             virtual bool HasTargetValue() const {
                 return _finishTime != TimePoint::max();
-            };
+            }
 
-            /**
-             * Sets up interpolation for the current update stage.
-             * @param current
-             * @param target
-             * @param delay Time since the last update (ideally avg / tickrate)
-             */
             virtual void SetTargetValue(const T &current, const T &target, float delay) = 0;
-
-            /**
-             * Calculates the currently interpolated value and advances interpolation.
-             * @param current
-             * @return
-             */
             virtual T UpdateTargetValue(const T &current) = 0;
 
-            /**
-             * Sets up optimal update rate range, so that if we're closer to lower bound, we calculate smaller
-             * error compensation as opposed to higher bound rates.
-             * @param delayMin
-             * @param delayMax
-             */
             void SetErrorContributionDelayRange(float delayMin, float delayMax) {
                 _delayMin = delayMin;
                 _delayMax = delayMax;
             }
 
-            /**
-             * Sets compensation factor to improve calculation results during over-compensation.
-             * @param factor
-             */
             void SetCompensationFactor(float factor) {
                 _compensationFactor = factor;
             }
 
-            /**
-             * Used internally by unit tests to simulate the passage of time.
-             * @param debugTime
-             */
-            void SetDebugTime(int64_t debugTime);
-
-          protected:
-            T _start;
-            T _end;
-            T _error;
-            TimePoint _startTime;
-            TimePoint _finishTime;
-            float _lastAlpha          = 0.0f;
-            float _delayMin           = 100.f;
-            float _delayMax           = 400.f;
-            float _compensationFactor = 1.0f;
-            bool _debugEnabled        = false;
-            std::chrono::milliseconds _debugTime {};
-
-            TimePoint GetCurrentTime() const;
-        };
-
-        Value<glm::vec3> *GetPosition() {
-            return &_position;
-        }
-
-        Value<glm::quat> *GetRotation() {
-            return &_rotation;
-        }
-
-        Interpolator() {
-            _position.SetErrorContributionDelayRange(_delayMin, _delayMax);
-            _rotation.SetErrorContributionDelayRange(_delayMin, _delayMax);
-        }
-
-      protected:
-        class Position: public Value<glm::vec3> {
-          public:
-            Position() = default;
-            void SetTargetValue(const glm::vec3 &current, const glm::vec3 &target, float delay) override;
-
-            glm::vec3 UpdateTargetValue(const glm::vec3 &current) override;
-
-            /**
-             * Set snap threshold when reaching target position. Used to finalize interpolation early, so that
-             * we avoid calculation errors caused by marginal distance.
-             * @param threshold
-             */
-            void SetSnapThreshold(float threshold) {
-                _snapThreshold = threshold;
+            void SetDebugTime(int64_t debugTime) {
+                _debugEnabled = true;
+                _debugTime = std::chrono::milliseconds(debugTime);
             }
 
           protected:
-            float _snapThreshold = 0.001f;
+            T _start{};
+            T _end{};
+            T _error{};
+            TimePoint _startTime;
+            TimePoint _finishTime;
+            float _lastAlpha = 0.0f;
+            float _delayMin = 100.0f;
+            float _delayMax = 400.0f;
+            float _compensationFactor = 1.0f;
+            bool _debugEnabled = false;
+            std::chrono::milliseconds _debugTime{};
+
+            TimePoint GetCurrentTime() const {
+                if (_debugEnabled) {
+                    return _startTime + _debugTime;
+                }
+                return std::chrono::high_resolution_clock::now();
+            }
         };
 
-        class Rotation: public Value<glm::quat> {
-          public:
-            Rotation() = default;
-            void SetTargetValue(const glm::quat &current, const glm::quat &target, float delay) override;
+        Interpolator() = default;
 
-            glm::quat UpdateTargetValue(const glm::quat &current) override;
-        };
+        template <typename T>
+        void RegisterProperty(const std::string &name) {
+            static_assert(std::is_same_v<T, glm::vec3> || std::is_same_v<T, glm::quat> || std::is_same_v<T, float>,
+                          "Only glm::vec3, glm::quat, and float are supported types.");
+            _properties.emplace(name, std::make_unique<ConcreteValue<T>>());
+        }
 
-        class Scalar: public Value<float> {
-          public:
-            Scalar() = default;
-            void SetTargetValue(const float &current, const float &target, float delay) override;
-
-            float UpdateTargetValue(const float &current) override;
-        };
-
-        float _delayMin = 100.f;
-        float _delayMax = 400.f;
+        template <typename T>
+        Value<T> *GetProperty(const std::string &name) {
+            auto it = _properties.find(name);
+            if (it != _properties.end()) {
+                return dynamic_cast<Value<T> *>(it->second.get());
+            }
+            throw std::runtime_error("Property not found or type mismatch.");
+        }
 
       private:
-        Position _position;
-        Rotation _rotation;
-    };
+        class ConcreteBase {
+          public:
+            virtual ~ConcreteBase() = default;
+        };
 
-    template <typename T>
-    void Interpolator::Value<T>::SetDebugTime(int64_t debugTime) {
-        _debugEnabled = true;
-        _debugTime    = std::chrono::milliseconds(debugTime);
-    }
-    template <typename T>
-    Interpolator::TimePoint Interpolator::Value<T>::GetCurrentTime() const {
-        if (_debugEnabled) {
-            return _startTime + _debugTime;
-        }
-        else {
-            return std::chrono::high_resolution_clock::now();
-        }
-    }
+        template <typename T>
+        class ConcreteValue final : public Value<T>, public ConcreteBase {
+          public:
+            void SetTargetValue(const T &current, const T &target, float delay) override {
+                this->_start = current;
+                this->_end = target;
+                this->_error = target - current;
+                this->_startTime = this->GetCurrentTime();
+                this->_finishTime = this->_startTime + std::chrono::milliseconds(static_cast<int>(delay));
+                this->_lastAlpha = 0.0f;
+            }
+
+            T UpdateTargetValue(const T &current) override {
+                if (!this->HasTargetValue()) return current;
+
+                float alpha = math::Unlerp(this->_startTime, this->_finishTime, this->GetCurrentTime());
+                alpha = std::clamp(alpha, 0.0f, 1.0f); // Ensure alpha is clamped between 0 and 1
+                return glm::mix(current, this->_end, alpha);
+            }
+        };
+
+        // Using std::unordered_map with unique_ptr to store property data safely
+        std::unordered_map<std::string, std::unique_ptr<ConcreteBase>> _properties;
+
+        // Deleted copy constructor and assignment operator to prevent issues with unique_ptr
+        Interpolator(const Interpolator &) = delete;
+        Interpolator &operator=(const Interpolator &) = delete;
+
+        // Allow move semantics
+        Interpolator(Interpolator &&) noexcept = default;
+        Interpolator &operator=(Interpolator &&) noexcept = default;
+    };
 } // namespace Framework::Utils

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <logging/logger.h>
 #include <string>
 
 //
@@ -20,6 +21,7 @@ class HookFunctionBase {
     HookFunctionBase *m_next;
 
   public:
+    virtual ~HookFunctionBase() = default;
     HookFunctionBase() {
         Register();
     }
@@ -30,17 +32,23 @@ class HookFunctionBase {
     void Register();
 };
 
-class InitFunction: public HookFunctionBase {
+class InitFunction final: public HookFunctionBase {
   private:
+    const char* m_name;
+    bool m_disabled;
     void (*m_function)();
 
   public:
-    InitFunction(void (*function)()) {
+    InitFunction(void (*function)(), const char* name, const bool disabled = false): m_name(name) {
         m_function = function;
+        m_disabled = disabled;
     }
 
     void Run() override {
+      if (!m_disabled) {
+        Framework::Logging::GetLogger(FRAMEWORK_INNER_CLIENT)->info("Running module: {}", m_name);
         m_function();
+      }
     }
 };
 

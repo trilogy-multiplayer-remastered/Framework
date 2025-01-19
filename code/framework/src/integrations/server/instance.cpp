@@ -87,7 +87,7 @@ namespace Framework::Integrations::Server {
         _opts.bindPort = result["port"].as<int32_t>();
 
         // Initialize the logging instance with the mod slug name
-        Logging::GetInstance()->SetLogName(_opts.modSlug);
+        Logging::GetInstance()->SetLogName("server");
 
         // Initialize the web server
         if (!_webServer->Init(_opts.webBindHost, _opts.webBindPort, _opts.httpServeDir)) {
@@ -107,12 +107,14 @@ namespace Framework::Integrations::Server {
             return ServerError::SERVER_WORLD_INIT_FAILED;
         }
 
-        /*if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
+        if (_opts.bindPublicServer && !_masterlist->Init(_opts.bindSecretKey)) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->error("Failed to contact masterlist server: Push key is empty");
         }
-        else */
-        if (!_opts.bindPublicServer) {
+        else if (!_opts.bindPublicServer) {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->warn("Server will not be announced to masterlist");
+        }
+        else {
+            Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Masterlist connector initialized");
         }
 
         // Init the signals handlers if enabled
@@ -148,7 +150,6 @@ namespace Framework::Integrations::Server {
         // Load the gamemode
         _scriptingEngine->GetServerEngine()->LoadScript();
 
-        Logging::GetLogger(FRAMEWORK_INNER_SERVER)->flush();
         Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Host:\t{}", _opts.bindHost);
         Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Port:\t{}", _opts.bindPort);
         Logging::GetLogger(FRAMEWORK_INNER_SERVER)->info("Max Players:\t{}", _opts.maxPlayers);
@@ -299,12 +300,14 @@ namespace Framework::Integrations::Server {
             Logging::GetLogger(FRAMEWORK_INNER_SERVER)->debug("Disconnecting peer {}, reason: {}", guid.g, reason);
 
             const auto e = _worldEngine->GetEntityByGUID(guid.g);
+            _worldEngine->GetWorld()->defer_begin();
             if (e.is_valid()) {
                 if (_onPlayerDisconnectCallback)
                     _onPlayerDisconnectCallback(e, guid.g);
 
                 _worldEngine->RemoveEntity(e);
             }
+            _worldEngine->GetWorld()->defer_end();
 
             net->GetPeer()->CloseConnection(guid, true);
         });
@@ -370,10 +373,12 @@ namespace Framework::Integrations::Server {
 
             if (_masterlist->IsInitialized()) {
                 Services::ServerInfo info {};
-                // info.gameMode       = _scriptingEngine->GetGameModeName();
+                info.gameMode       = _scriptingEngine->GetServerEngine()->GetScriptName();
                 info.version        = Utils::Version::rel;
                 info.maxPlayers     = _opts.maxPlayers;
                 info.currentPlayers = _networkingEngine->GetNetworkServer()->GetPeer()->NumberOfConnections();
+                info.webPort        = _opts.webBindPort;
+                info.gamePort       = _opts.bindPort;
                 _masterlist->Ping(info);
             }
 

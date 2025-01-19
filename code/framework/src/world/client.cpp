@@ -91,9 +91,11 @@ namespace Framework::World {
 
         _world->defer_begin();
         _allStreamableEntities.each([this](flecs::entity e, Modules::Base::Transform&, Modules::Base::Streamable&) {
-            if (_onEntityDestroyCallback) {
-                if (!_onEntityDestroyCallback(e)) {
-                    return;
+            for (const auto &onEntityDestroyCallbacks : _onEntityDestroyCallbacks) {
+                if (onEntityDestroyCallbacks) {
+                    if (!onEntityDestroyCallbacks(e)) {
+                        return;
+                    }
                 }
             }
 
