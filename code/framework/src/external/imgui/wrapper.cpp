@@ -44,6 +44,7 @@ namespace Framework::External::ImGUI {
         io.ConfigWindowsResizeFromEdges = true;
 
         ImGui::StyleColorsDark();
+        io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 14.0f);
 
         switch (_config.renderBackend) {
         case Graphics::RendererBackend::BACKEND_D3D_9: {
