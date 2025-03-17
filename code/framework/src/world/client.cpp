@@ -90,13 +90,15 @@ namespace Framework::World {
         }
 
         _world->defer_begin();
-        _allStreamableEntities.each([this](flecs::entity e, Modules::Base::Transform&, Modules::Base::Streamable&) {
-            for (const auto &onEntityDestroyCallbacks : _onEntityDestroyCallbacks) {
-                if (onEntityDestroyCallbacks) {
-                    if (!onEntityDestroyCallbacks(e)) {
-                        return;
-                    }
+        _allStreamableEntities.each([this](flecs::entity e, Modules::Base::Transform&, Modules::Base::Streamable& str) {
+            if (_onEntityDestroyCallback) {
+                if (!_onEntityDestroyCallback(e)) {
+                    return;
                 }
+            }
+
+            if (str.modEvents.disconnectProc) {
+                str.modEvents.disconnectProc(e);
             }
 
             e.destruct();
@@ -130,4 +132,17 @@ namespace Framework::World {
         });
     }
 
+    void ClientEngine::UpdateEntityTransform(flecs::entity entity, Modules::Base::Transform &rhs) {
+        if (!entity.is_valid() || !entity.is_alive()) {
+            return;
+        }
+
+        auto tr = entity.get_mut<Modules::Base::Transform>();
+        *tr     = rhs;
+
+        const auto str = entity.get_mut<Modules::Base::Streamable>();
+        if (str->modEvents.updateTransformProc) {
+            str->modEvents.updateTransformProc(entity);
+        }
+    }
 } // namespace Framework::World

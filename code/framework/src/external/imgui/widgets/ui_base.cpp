@@ -68,9 +68,9 @@ namespace Framework::External::ImGUI::Widgets {
         ImGui::End();
     }
 
-    void UIBase::CreateUIWindow(const char *name, const WindowContent &windowContent, bool *pOpen, ImGuiWindowFlags flags) const {
+    void UIBase::CreateUIWindow(const char *name, const WindowContent windowContent, bool *pOpen, ImGuiWindowFlags flags) const {
         if (!AreControlsLocked()) {
-            flags |= ImGuiWindowFlags_NoResize;
+            flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
 
             ImGui::SetNextWindowBgAlpha(_styleWindowBackgroundAlphaWhenControlsAreUnlocked);
 
@@ -79,7 +79,8 @@ namespace Framework::External::ImGUI::Widgets {
             ImGui::PushStyleColor(ImGuiCol_TitleBgActive, style.Colors[ImGuiCol_TitleBgCollapsed]);
         }
 
-        if (const bool wasWindowProcessed = ImGui::Begin(name, AreControlsLocked() ? pOpen : nullptr, flags); !wasWindowProcessed) {
+        // If the clean up if the window was processed
+        if (!ImGui::Begin(name, AreControlsLocked() ? pOpen : nullptr, flags)) {
             CleanUpUIWindow();
             return;
         }

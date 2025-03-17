@@ -48,12 +48,12 @@ namespace Framework::Scripting {
             return _packageLoaded;
         }
 
-        void SetScriptName(const std::string &name) {
-            _scriptName = name;
-        }
-
         std::string GetScriptName() const {
             return _scriptName;
+        }
+
+        void SetScriptName(const std::string &name) {
+            _scriptName = name;
         }
 
         void SetExecutionPath(const std::string &path) {

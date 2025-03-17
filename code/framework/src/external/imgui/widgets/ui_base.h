@@ -78,6 +78,6 @@ namespace Framework::External::ImGUI::Widgets {
          * - resizing is disabled
          * - collapsing is disabled
          */
-        void CreateUIWindow(const char *name, const WindowContent &windowContent, bool *pOpen = nullptr, ImGuiWindowFlags flags = 0) const;
+        void CreateUIWindow(const char *name, const WindowContent windowContent, bool *pOpen = nullptr, ImGuiWindowFlags flags = 0) const;
     };
 } // namespace Framework::External::ImGUI::Widgets

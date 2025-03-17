@@ -33,9 +33,9 @@ set(FRAMEWORK_SRC
 set(FRAMEWORK_SERVER_SRC
     src/scripting/client_engine.cpp
     src/scripting/engine.cpp
-    src/scripting/events.cpp
     src/scripting/module.cpp
     src/scripting/server_engine.cpp
+    src/scripting/types/events.cpp
 
     src/http/webserver.cpp
 
@@ -49,6 +49,7 @@ set(FRAMEWORK_SERVER_SRC
 set(FRAMEWORK_CLIENT_SRC
     src/graphics/renderer.cpp
     src/graphics/renderio.cpp
+    src/graphics/types.cpp
 
     src/networking/network_client.cpp
 
@@ -67,6 +68,7 @@ set(FRAMEWORK_CLIENT_SRC
     src/gui/clipboard.cpp
     src/gui/view.cpp
     src/gui/sdk.cpp
+    src/gui/backend/renderer_d3d11.cpp
     src/gui/backend/view_d3d11.cpp
 )
 
@@ -161,7 +163,7 @@ target_link_libraries(FrameworkServer libsig Lua54)
 # Platform-dependent post processing
 if(WIN32)
     target_link_directories(Framework PUBLIC ${CMAKE_SOURCE_DIR}/vendors/openssl/lib)
-    target_link_libraries(Framework ws2_32 dbghelp crypt32 winmm iphlpapi psapi userenv)
+    target_link_libraries(Framework ws2_32 dbghelp crypt32 winmm iphlpapi psapi userenv shlwapi)
 
     target_link_libraries(FrameworkClient DiscordSDK DearImGUI)
 
