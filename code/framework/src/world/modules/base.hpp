@@ -137,7 +137,7 @@ namespace Framework::World::Modules {
             struct StreamData {
                 double lastUpdate = 0.0;
             };
-            float range          = 100.0f;
+            float range          = 500.0f;
             uint64_t guid        = 0xFFFFFFFFFFFFFFFF;
             uint16_t playerIndex = 0xFFFF;
             std::string nickname;
